@@ -1,0 +1,195 @@
+@use "@/styles/variables" as *;
+
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.sectionHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+// .sectionTitle {
+//   font-size: 1rem;
+//   font-weight: 600;
+//   color: var(--color-text);
+// }
+
+.sectionRight {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.filters {
+  display: flex;
+  gap: var(--space-1);
+  background: var(--color-bg-secondary);
+  padding: var(--space-1);
+  border-radius: var(--radius-md);
+}
+
+.filterBtn {
+  padding: var(--space-1) var(--space-3);
+  border-radius: calc(var(--radius-md) - 2px);
+  font-size: 0.8125rem;
+  color: var(--color-text-secondary);
+  transition: all var(--transition);
+
+  &:hover {
+    color: var(--color-text);
+  }
+}
+
+.filterActive {
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-weight: 500;
+  box-shadow: var(--shadow-sm);
+}
+
+.itemDeleted {
+  opacity: 0.5;
+
+  .itemName {
+    text-decoration: line-through;
+  }
+}
+
+.addBtn {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  background: var(--color-primary);
+  color: white;
+  border-radius: var(--radius-md);
+  font-size: 0.8125rem;
+  font-weight: 500;
+  transition: background var(--transition);
+
+  &:hover {
+    background: var(--color-primary-hover);
+  }
+}
+
+.errorBanner {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  background: var(--color-danger-light);
+  border: 1px solid var(--color-danger-border);
+  border-radius: var(--radius-md);
+  color: var(--color-danger);
+  font-size: 0.875rem;
+}
+
+.empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-10);
+  background: var(--color-bg);
+  border: 1px dashed var(--color-border);
+  border-radius: var(--radius-lg);
+  color: var(--color-text-tertiary);
+  text-align: center;
+}
+
+.list {
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+
+.item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-4) var(--space-5);
+  transition: background var(--transition);
+  cursor: pointer;
+
+  &:not(:last-child) {
+    border-bottom: 1px solid var(--color-border);
+  }
+
+  &:hover {
+    background: var(--color-bg-secondary);
+  }
+}
+
+.itemIcon {
+  width: 34px;
+  height: 34px;
+  border-radius: var(--radius-md);
+  background: var(--color-primary-light);
+  color: var(--color-text-primary-accent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.itemInfo {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.itemName {
+  font-size: 0.9375rem;
+  font-weight: 500;
+  color: var(--color-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.itemMeta {
+  font-size: 0.8125rem;
+  color: var(--color-text-tertiary);
+}
+
+.itemValue {
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: var(--color-text);
+  flex-shrink: 0;
+}
+
+.itemActions {
+  display: flex;
+  gap: var(--space-1);
+}
+
+.actionBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: var(--radius-sm);
+  color: var(--color-text-tertiary);
+  transition: all var(--transition);
+
+  &:hover {
+    background: var(--color-bg-tertiary);
+    color: var(--color-text);
+  }
+}
+
+.actionDelete {
+  &:hover {
+    background: #fef2f2;
+    color: var(--color-danger);
+  }
+}

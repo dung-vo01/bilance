@@ -1,0 +1,55 @@
+// Emerald palette
+$emerald-50: #ecfdf5;
+$emerald-100: #d1fae5;
+$emerald-200: #a7f3d0;
+$emerald-300: #6ee7b7;
+$emerald-400: #34d399;
+$emerald-500: #10b981;
+$emerald-600: #059669;
+$emerald-700: #047857;
+$emerald-800: #065f46;
+$emerald-900: #064e3b;
+
+// Breakpoints
+$bp-sm: 480px;
+$bp-md: 767px;
+$bp-lg: 1024px;
+$bp-xl: 1280px;
+
+// Mixins
+@mixin mobile {
+  @media (max-width: #{$bp-md}) {
+    @content;
+  }
+}
+
+@mixin tablet {
+  @media (max-width: #{$bp-lg}) {
+    @content;
+  }
+}
+
+@mixin desktop {
+  @media (min-width: #{$bp-lg}) {
+    @content;
+  }
+}
+
+@mixin flex-center {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+@mixin truncate {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+@mixin card {
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
+}

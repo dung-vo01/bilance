@@ -1,0 +1,42 @@
+@use "@/styles/variables" as *;
+
+.container {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-4);
+  background: var(--color-bg-secondary);
+}
+
+.logo {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: 1.75rem;
+  font-weight: 600;
+  font-family: var(--font-sans);
+}
+
+.logoBi {
+  color: var(--color-primary);
+}
+
+.logoLance {
+  color: var(--color-text);
+}
+
+.spinner {
+  color: var(--color-primary);
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}

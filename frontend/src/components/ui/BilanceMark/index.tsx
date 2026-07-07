@@ -1,0 +1,98 @@
+interface BilanceMarkProps {
+  size?: number;
+  className?: string;
+}
+
+export const BilanceMark = ({ size = 32, className }: BilanceMarkProps) => (
+  <svg
+    width={size}
+    height={size}
+    viewBox="0 0 100 100"
+    className={className}
+    aria-hidden="true"
+  >
+    <rect width="100" height="100" rx="22" fill="var(--color-primary)" />
+    <circle cx="50" cy="31" r="3" fill="#ffffff" />
+    <line
+      x1="31"
+      y1="31"
+      x2="69"
+      y2="31"
+      stroke="#ffffff"
+      strokeWidth="4"
+      strokeLinecap="round"
+    />
+    <line
+      x1="31"
+      y1="31"
+      x2="31"
+      y2="45"
+      stroke="#ffffff"
+      strokeWidth="4"
+      strokeLinecap="round"
+    />
+    <line
+      x1="69"
+      y1="31"
+      x2="69"
+      y2="45"
+      stroke="#ffffff"
+      strokeWidth="4"
+      strokeLinecap="round"
+    />
+    <circle
+      cx="31"
+      cy="53"
+      r="9"
+      stroke="#ffffff"
+      strokeWidth="4"
+      fill="none"
+    />
+    <circle
+      cx="69"
+      cy="53"
+      r="9"
+      stroke="#ffffff"
+      strokeWidth="4"
+      fill="none"
+    />
+    <line
+      x1="50"
+      y1="31"
+      x2="50"
+      y2="68"
+      stroke="#ffffff"
+      strokeWidth="4"
+      strokeLinecap="round"
+    />
+    <line
+      x1="50"
+      y1="68"
+      x2="38"
+      y2="79"
+      stroke="#ffffff"
+      strokeWidth="4"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+    <line
+      x1="50"
+      y1="68"
+      x2="62"
+      y2="79"
+      stroke="#ffffff"
+      strokeWidth="4"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+    <line
+      x1="35"
+      y1="79"
+      x2="65"
+      y2="79"
+      stroke="#ffffff"
+      strokeWidth="4"
+      strokeLinecap="round"
+    />
+  </svg>
+);
