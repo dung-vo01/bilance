@@ -25,6 +25,7 @@ class ExpenseOut(BaseModel):
     is_deleted: bool
     category_id: int | None = None
     payee_id: int | None = None
+    payee: UserPublicOut | None = None
     expense_group_id: int | None = None
     created_by_id: int | None = None
     created_at: datetime

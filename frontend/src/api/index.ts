@@ -16,6 +16,8 @@ import type {
   NewExpensePayload,
   UpdateExpensePayload,
   NewUserPayload,
+  ExpenseListParams,
+  PaginatedExpenses,
 } from "@/types";
 
 //--------------------------------------------------------------------------------
@@ -130,6 +132,14 @@ export const expenseGroupsApi = {
 export const expensesApi = {
   getAll: (params?: { expense_group_id?: number }) =>
     api.get<{ data: Expense[] }>("/expenses", { params }),
+
+  getPaginated: (params: ExpenseListParams) =>
+    api.get<{ data: PaginatedExpenses }>("/expenses", { params }),
+
+  getPayees: (expense_group_id: number) =>
+    api.get<{ data: User[] }>("/expenses/payees", {
+      params: { expense_group_id },
+    }),
 
   create: (data: NewExpensePayload) =>
     api.post<{ data: Expense }>("/expenses", data),

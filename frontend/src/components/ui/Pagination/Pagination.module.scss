@@ -1,0 +1,77 @@
+@use "@/styles/variables" as *;
+
+.pagination {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding-top: var(--space-2);
+  flex-wrap: wrap;
+}
+
+.summary {
+  font-size: 0.8125rem;
+  color: var(--color-text-tertiary);
+}
+
+.pageSizeRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.pageSizeLabel {
+  font-size: 0.8125rem;
+  color: var(--color-text-tertiary);
+  white-space: nowrap;
+}
+
+.pageSizeSelect {
+  width: 72px;
+}
+
+.pageSizeTrigger {
+  font-size: 0.8125rem !important;
+  padding: var(--space-1) var(--space-2) !important;
+  min-height: unset !important;
+  min-width: unset !important;
+}
+
+.controls {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.pageBtn {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  font-size: 0.8125rem;
+  color: var(--color-text-secondary);
+  transition: all var(--transition);
+
+  &:hover:not(:disabled) {
+    background: var(--color-bg-secondary);
+    color: var(--color-text);
+  }
+
+  &:disabled {
+    opacity: 0.4;
+    cursor: default;
+  }
+}
+
+@include mobile {
+  .pagination {
+    justify-content: center;
+  }
+
+  .summary {
+    width: 100%;
+    text-align: center;
+  }
+}

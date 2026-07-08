@@ -1,3 +1,6 @@
+from math import ceil
+from typing import Literal
+
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -5,6 +8,7 @@ from app.core.deps import get_current_user_id
 from app.db.session import get_db
 from app.schemas.common import envelope
 from app.schemas.expense import ExpenseCreate, ExpenseOut, ExpenseUpdate
+from app.schemas.user import UserPublicOut
 from app.services import expense_service
 
 router = APIRouter()
@@ -13,11 +17,59 @@ router = APIRouter()
 @router.get("")
 async def list_expenses(
     expense_group_id: int | None = Query(None),
+    status: Literal["all", "active", "deleted"] = Query("all"),
+    search_kw: str | None = Query(None),
+    category_id: int | None = Query(None),
+    no_category: bool = Query(False),
+    payee_id: int | None = Query(None),
+    sort_by: Literal["name", "paid_at", "created_at", "value"] = Query("paid_at"),
+    sort_dir: Literal["asc", "desc"] = Query("desc"),
+    page: int | None = Query(None, ge=1),
+    page_size: int = Query(10, ge=1, le=100),
     user_id: int = Depends(get_current_user_id),
     db: AsyncSession = Depends(get_db),
 ):
-    expenses = await expense_service.get_all(db, user_id, expense_group_id)
-    return envelope([ExpenseOut.model_validate(e).model_dump(mode="json") for e in expenses])
+    expenses, total, total_value = await expense_service.get_all(
+        db,
+        user_id,
+        expense_group_id,
+        status=status,
+        search_kw=search_kw,
+        category_id=category_id,
+        no_category=no_category,
+        payee_id=payee_id,
+        sort_by=sort_by,
+        sort_dir=sort_dir,
+        page=page,
+        page_size=page_size,
+    )
+    items = [ExpenseOut.model_validate(e).model_dump(mode="json") for e in expenses]
+
+    if page is None:
+        return envelope(items)
+
+    return envelope(
+        {
+            "items": items,
+            "total": total,
+            "total_value": total_value,
+            "page": page,
+            "page_size": page_size,
+            "total_pages": ceil(total / page_size) if page_size else 0,
+        }
+    )
+
+
+@router.get("/payees")
+async def list_payees(
+    expense_group_id: int = Query(...),
+    user_id: int = Depends(get_current_user_id),
+    db: AsyncSession = Depends(get_db),
+):
+    payees = await expense_service.get_distinct_payees(db, user_id, expense_group_id)
+    return envelope(
+        [UserPublicOut.model_validate(u).model_dump(mode="json") for u in payees]
+    )
 
 
 @router.post("", status_code=201)

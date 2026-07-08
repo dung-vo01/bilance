@@ -29,6 +29,20 @@ export const ExpenseDetailsModal = ({
 
   const category = categories.find((c) => c.id === expense.category_id);
 
+  const isFormerMember = (userId: number) =>
+    !!expense_group && !expense_group.members.some((m) => m.user_id === userId);
+
+  const getPayeeDisplay = () => {
+    const username =
+      expense.payee?.username ??
+      expense_group?.members.find((m) => m.user_id === expense.payee_id)?.user
+        ?.username ??
+      "unknown";
+    if (expense.payee_id === current_user?.id) return `${username} (you)`;
+    if (isFormerMember(expense.payee_id)) return `${username} (former member)`;
+    return username;
+  };
+
   const toggleExpenseFormModal = (open: boolean) => {
     setShowExpenseFormModal(open);
   };
@@ -102,12 +116,7 @@ export const ExpenseDetailsModal = ({
           {expense_group && (
             <div className={styles.detailRow}>
               <span className={styles.detailLabel}>Paid by</span>
-              <span className={styles.detailValue}>
-                {expense_group.members.find(
-                  (m) => m.user_id === expense.payee_id,
-                )?.user?.username ?? "unknown"}
-                {expense.payee_id === current_user?.id ? " (you)" : ""}
-              </span>
+              <span className={styles.detailValue}>{getPayeeDisplay()}</span>
             </div>
           )}
           {expense.description && (
@@ -126,13 +135,14 @@ export const ExpenseDetailsModal = ({
                 const member = expense_group?.members.find(
                   (m) => m.user_id === share.user_id,
                 );
-                const username =
-                  member?.user?.username ?? `User ${share.user_id}`;
+                const person = share.user ?? member?.user;
+                const username = person?.username ?? `User ${share.user_id}`;
                 const fullName =
-                  member?.user?.firstname || member?.user?.lastname
-                    ? `${member?.user?.firstname ?? ""} ${member?.user?.lastname ?? ""}`.trim()
+                  person?.firstname || person?.lastname
+                    ? `${person?.firstname ?? ""} ${person?.lastname ?? ""}`.trim()
                     : null;
                 const isCurrentUser = share.user_id === current_user?.id;
+                const former = isFormerMember(share.user_id);
 
                 return (
                   <div key={share.user_id} className={styles.shareRow}>
@@ -142,7 +152,11 @@ export const ExpenseDetailsModal = ({
                     <div className={styles.shareInfo}>
                       <span className={styles.shareName}>
                         {fullName ?? username}
-                        {isCurrentUser ? " (you)" : ""}
+                        {isCurrentUser
+                          ? " (you)"
+                          : former
+                            ? " (former member)"
+                            : ""}
                       </span>
                       {fullName && (
                         <span className={styles.shareUsername}>

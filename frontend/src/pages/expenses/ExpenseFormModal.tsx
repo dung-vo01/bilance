@@ -234,10 +234,27 @@ export const ExpenseFormModal = ({
                   triggerClassName={styles.dropdownTrigger}
                   value={form.payee_id ? form.payee_id.toString() : ""}
                   onChange={(v) => setForm({ ...form, payee_id: Number(v) })}
-                  options={expense_group.members.map((m) => ({
-                    value: m.user_id.toString(),
-                    label: `${m.user?.username ?? m.user_id}${m.user_id === current_user?.id ? " (you)" : ""}`,
-                  }))}
+                  options={[
+                    ...expense_group.members.map((m) => ({
+                      value: m.user_id.toString(),
+                      label: `${m.user?.username ?? m.user_id}${m.user_id === current_user?.id ? " (you)" : ""}`,
+                    })),
+                    // The current payee may have since left/been removed from
+                    // the group. Keep them selectable (as-is, not reassignable
+                    // to other former members) so the field doesn't silently
+                    // appear blank when editing their expense.
+                    ...(expense?.payee_id &&
+                    !expense_group.members.some(
+                      (m) => m.user_id === expense.payee_id,
+                    )
+                      ? [
+                          {
+                            value: expense.payee_id.toString(),
+                            label: `${expense.payee?.username ?? `User ${expense.payee_id}`} (former member)`,
+                          },
+                        ]
+                      : []),
+                  ]}
                 />
               </div>
             )}

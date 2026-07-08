@@ -231,3 +231,29 @@ export type MemberExpenseShare = {
   user_id: number;
   ratio: number;
 };
+
+export type ExpenseStatusFilter = "all" | "active" | "deleted";
+export type ExpenseSortBy = "name" | "paid_at" | "created_at" | "value";
+export type SortDir = "asc" | "desc";
+
+export type ExpenseListParams = {
+  expense_group_id?: number;
+  status?: ExpenseStatusFilter;
+  search_kw?: string;
+  category_id?: number;
+  no_category?: boolean;
+  payee_id?: number;
+  sort_by?: ExpenseSortBy;
+  sort_dir?: SortDir;
+  page?: number;
+  page_size?: number;
+};
+
+export interface PaginatedExpenses {
+  items: Expense[];
+  total: number;
+  total_value: number;
+  page: number;
+  page_size: number;
+  total_pages: number;
+}

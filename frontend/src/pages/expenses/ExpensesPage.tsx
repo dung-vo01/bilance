@@ -1,27 +1,49 @@
-import { useState, useMemo, useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Icon } from "@iconify/react";
-import { useExpenses, useUpdateExpense, useCategories } from "@/hooks/queries";
-import type { Expense } from "@/types";
+import {
+  useExpensesPaginated,
+  useUpdateExpense,
+  useCategories,
+} from "@/hooks/queries";
+import { useDebouncedValue } from "@/hooks/useDebouncedValue";
+import type { Expense, ExpenseStatusFilter } from "@/types";
 import styles from "./ExpensesPage.module.scss";
 import { ConfirmModal } from "@/components/ui/ConfirmModal";
+import { Select } from "@/components/ui/Select";
+import { Pagination } from "@/components/ui/Pagination";
 import { ExpenseFormModal } from "./ExpenseFormModal";
 import { ExpenseDetailsModal } from "./ExpenseDetailsModal";
-
-type Filter = "all" | "active" | "deleted";
+import {
+  EXPENSE_SORT_OPTIONS,
+  DEFAULT_EXPENSE_SORT,
+  parseExpenseSort,
+  type ExpenseSortValue,
+} from "./expenseSortOptions";
 
 export const ExpensesPage = () => {
-  const { data: expenses = [], isLoading } = useExpenses();
-  const { data: categories = [] } = useCategories();
-  const { mutate: updateExpense } = useUpdateExpense();
   const [selectedExpenseId, setSelectedExpenseId] = useState<number | null>(
     null,
   );
 
-  const [filter, setFilter] = useState<Filter>("active");
+  const [status, setStatus] = useState<ExpenseStatusFilter>("active");
+  const [searchInput, setSearchInput] = useState("");
+  // "" = all categories, "none" = no category, else a category id
+  const [categoryFilter, setCategoryFilter] = useState("");
+  const [sort, setSort] = useState<ExpenseSortValue>(DEFAULT_EXPENSE_SORT);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+
   const [showExpenseFormModal, setShowExpenseFormModal] = useState(false);
   const [showExpenseDetailsModal, setShowExpenseDetailsModal] = useState(false);
   const [showConfirmDeleteModal, setShowConfirmDeleteModal] = useState(false);
   const [error, setError] = useState("");
+
+  const debouncedSearch = useDebouncedValue(searchInput);
+  const { sort_by, sort_dir } = parseExpenseSort(sort);
+
+  useEffect(() => {
+    setPage(1);
+  }, [status, debouncedSearch, categoryFilter, sort, pageSize]);
 
   useEffect(() => {
     if (error) {
@@ -30,25 +52,36 @@ export const ExpensesPage = () => {
     }
   }, [error]);
 
+  const { data, isLoading } = useExpensesPaginated({
+    status,
+    search_kw: debouncedSearch || undefined,
+    category_id:
+      categoryFilter && categoryFilter !== "none"
+        ? Number(categoryFilter)
+        : undefined,
+    no_category: categoryFilter === "none" ? true : undefined,
+    sort_by,
+    sort_dir,
+    page,
+    page_size: pageSize,
+  });
+  const { data: categories = [] } = useCategories();
+  const { mutate: updateExpense } = useUpdateExpense();
+
+  const expenses = data?.items ?? [];
+  const total = data?.total ?? 0;
+  const totalValue = data?.total_value ?? 0;
+  const totalPages = data?.total_pages ?? 1;
+
   const selectedExpense =
     expenses.find((e) => e.id === selectedExpenseId) ?? null;
 
-  const filtered = useMemo(() => {
-    return expenses.filter((e) => {
-      if (e.expense_group_id) return false;
-      if (filter === "active") return !e.is_deleted;
-      if (filter === "deleted") return e.is_deleted;
-      return true;
-    });
-  }, [expenses, filter]);
+  const hasFilters = debouncedSearch.trim() !== "" || categoryFilter !== "";
 
-  const total = useMemo(
-    () =>
-      filtered
-        .filter((e) => !e.is_deleted)
-        .reduce((sum, e) => sum + e.value, 0),
-    [filtered],
-  );
+  const clearFilters = () => {
+    setSearchInput("");
+    setCategoryFilter("");
+  };
 
   const toggleExpenseDetailsModal = (open: boolean, expense?: Expense) => {
     setSelectedExpenseId(expense ? expense.id : null);
@@ -105,19 +138,60 @@ export const ExpensesPage = () => {
 
       <div className={styles.toolbar}>
         <div className={styles.filters}>
-          {(["all", "active", "deleted"] as Filter[]).map((f) => (
+          {(["all", "active", "deleted"] as ExpenseStatusFilter[]).map((f) => (
             <button
               key={f}
-              className={`${styles.filterBtn} ${filter === f ? styles.filterActive : ""}`}
-              onClick={() => setFilter(f)}
+              className={`${styles.filterBtn} ${status === f ? styles.filterActive : ""}`}
+              onClick={() => setStatus(f)}
             >
               {f.charAt(0).toUpperCase() + f.slice(1)}
             </button>
           ))}
         </div>
         <div className={styles.totalBadge}>
-          Total: <strong>€{total.toFixed(2)}</strong>
+          Total: <strong>€{totalValue.toFixed(2)}</strong>
         </div>
+      </div>
+
+      <div className={styles.controlsRow}>
+        <div className={styles.searchBar}>
+          <Icon
+            icon="ph:magnifying-glass"
+            width={16}
+            height={16}
+            className={styles.searchIcon}
+          />
+          <input
+            className={styles.searchInput}
+            value={searchInput}
+            onChange={(e) => setSearchInput(e.target.value)}
+            placeholder="Search name or description..."
+          />
+        </div>
+
+        <Select
+          wrapperClassName={styles.filterSelect}
+          triggerClassName={styles.dropdownTrigger}
+          value={categoryFilter}
+          onChange={setCategoryFilter}
+          placeholder="All categories"
+          options={[
+            { value: "", label: "All categories" },
+            { value: "none", label: "No category" },
+            ...categories.map((c) => ({
+              value: c.id.toString(),
+              label: c.name,
+            })),
+          ]}
+        />
+
+        <Select
+          wrapperClassName={styles.filterSelect}
+          triggerClassName={styles.dropdownTrigger}
+          value={sort}
+          onChange={(v) => setSort(v as ExpenseSortValue)}
+          options={EXPENSE_SORT_OPTIONS}
+        />
       </div>
 
       {error && (
@@ -136,20 +210,33 @@ export const ExpensesPage = () => {
             className={styles.spin}
           />
         </div>
-      ) : filtered.length === 0 ? (
+      ) : expenses.length === 0 ? (
         <div className={styles.empty}>
           <Icon icon="ph:receipt" width={40} height={40} />
-          <p>No expenses found</p>
-          <button
-            className={styles.emptyAction}
-            onClick={() => toggleExpenseFormModal(true)}
-          >
-            Add your first expense
-          </button>
+          {hasFilters ? (
+            <>
+              <p>No expenses match your search</p>
+              <button className={styles.emptyAction} onClick={clearFilters}>
+                Clear filters
+              </button>
+            </>
+          ) : status !== "active" ? (
+            <p>No expenses found</p>
+          ) : (
+            <>
+              <p>No expenses found</p>
+              <button
+                className={styles.emptyAction}
+                onClick={() => toggleExpenseFormModal(true)}
+              >
+                Add your first expense
+              </button>
+            </>
+          )}
         </div>
       ) : (
         <div className={styles.list}>
-          {filtered.map((expense) => (
+          {expenses.map((expense) => (
             <div
               key={expense.id}
               className={`${styles.item} ${expense.is_deleted ? styles.itemDeleted : ""}`}
@@ -217,6 +304,15 @@ export const ExpensesPage = () => {
           ))}
         </div>
       )}
+
+      <Pagination
+        page={page}
+        totalPages={totalPages}
+        total={total}
+        onChange={setPage}
+        pageSize={pageSize}
+        onPageSizeChange={setPageSize}
+      />
 
       {showExpenseDetailsModal && selectedExpense && (
         <ExpenseDetailsModal

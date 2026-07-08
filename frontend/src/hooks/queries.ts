@@ -1,4 +1,9 @@
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import {
+  useQuery,
+  useMutation,
+  useQueryClient,
+  keepPreviousData,
+} from "@tanstack/react-query";
 import {
   authApi,
   usersApi,
@@ -12,6 +17,7 @@ import {
   Expense,
   ExpenseGroup,
   ExpenseGroupMember,
+  ExpenseListParams,
   Notification,
   UpdateCategoryPayload,
   UpdateExpenseGroupPayload,
@@ -30,6 +36,8 @@ export const queryKeys = {
   expense_group: (id: number) => ["expense_groups", id] as const,
   settlement: (id: number) => ["expense_groups", id, "settlement"] as const,
   expenses: (params?: object) => ["expenses", params] as const,
+  expensePayees: (expenseGroupId: number) =>
+    ["expenses", "payees", expenseGroupId] as const,
   notifications: ["notifications"] as const,
 };
 
@@ -387,6 +395,25 @@ export const useExpenses = (params?: { expense_group_id?: number }) =>
     queryFn: () => expensesApi.getAll(params).then((r) => r.data.data),
   });
 
+export const useExpensesPaginated = (params: ExpenseListParams) =>
+  useQuery({
+    queryKey: queryKeys.expenses(params),
+    queryFn: () => expensesApi.getPaginated(params).then((r) => r.data.data),
+    placeholderData: keepPreviousData,
+    // Group expenses are edited by other members too, so don't sit on the
+    // app-wide 5min staleTime — that's fine for solo data (categories,
+    // profile) but would hide a groupmate's new/edited expense for too long.
+    staleTime: 15_000,
+  });
+
+export const useExpensePayees = (expenseGroupId: number) =>
+  useQuery({
+    queryKey: queryKeys.expensePayees(expenseGroupId),
+    queryFn: () =>
+      expensesApi.getPayees(expenseGroupId).then((r) => r.data.data),
+    staleTime: 15_000,
+  });
+
 export const useCreateExpense = () => {
   const qc = useQueryClient();
   return useMutation({
@@ -402,6 +429,7 @@ export const useCreateExpense = () => {
       qc.setQueryData(key, (old: Expense[] | undefined) =>
         old ? [...old, created] : [created],
       );
+      qc.invalidateQueries({ queryKey: ["expenses"] });
       if (created.expense_group_id) {
         qc.invalidateQueries({
           queryKey: queryKeys.settlement(created.expense_group_id),
@@ -426,6 +454,7 @@ export const useUpdateExpense = () => {
       qc.setQueryData(key, (old: Expense[] | undefined) =>
         old?.map((ex) => (ex.id === updated.id ? updated : ex)),
       );
+      qc.invalidateQueries({ queryKey: ["expenses"] });
 
       if (updated.expense_group_id) {
         qc.invalidateQueries({
@@ -448,6 +477,7 @@ export const useDeleteExpense = () => {
       qc.setQueryData(key, (old: Expense[] | undefined) =>
         old?.filter((ex) => ex.id !== id),
       );
+      qc.invalidateQueries({ queryKey: ["expenses"] });
       if (expense_group_id) {
         qc.invalidateQueries({
           queryKey: queryKeys.settlement(expense_group_id),

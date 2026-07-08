@@ -184,9 +184,7 @@ export const ExpenseGroupDetailPage = () => {
         ))}
       </div>
 
-      {tab === "expenses" && (
-        <ExpensesTab expense_group={expense_group} expenses={expenses} />
-      )}
+      {tab === "expenses" && <ExpensesTab expense_group={expense_group} />}
 
       {tab === "members" && <MembersTab expense_group={expense_group} />}
 

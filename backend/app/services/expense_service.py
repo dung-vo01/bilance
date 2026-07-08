@@ -1,38 +1,119 @@
 from datetime import datetime
 
-from sqlalchemy import select
+from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.core.authz import is_app_admin, is_group_member
 from app.core.exceptions import AppError, ForbiddenError, NotFoundError
-from app.models import Expense, ExpenseShare
+from app.models import Expense, ExpenseShare, User
 from app.schemas.expense import ExpenseCreate, ExpenseUpdate
 
-_SHARES_LOADER = selectinload(Expense.shares).selectinload(ExpenseShare.user)
+_DETAIL_LOADERS = (
+    selectinload(Expense.shares).selectinload(ExpenseShare.user),
+    selectinload(Expense.payee),
+)
+
+_SORT_COLUMNS = {
+    "name": Expense.name,
+    "paid_at": Expense.paid_at,
+    "created_at": Expense.created_at,
+    "value": Expense.value,
+}
+
+
+def _escape_like(value: str) -> str:
+    return value.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
 
 
 async def get_all(
-    db: AsyncSession, user_id: int, expense_group_id: int | None
-) -> list[Expense]:
+    db: AsyncSession,
+    user_id: int,
+    expense_group_id: int | None,
+    status: str = "all",
+    search_kw: str | None = None,
+    category_id: int | None = None,
+    no_category: bool = False,
+    payee_id: int | None = None,
+    sort_by: str = "paid_at",
+    sort_dir: str = "desc",
+    page: int | None = None,
+    page_size: int = 10,
+) -> tuple[list[Expense], int, float]:
     if expense_group_id:
         if not await is_app_admin(db, user_id) and not await is_group_member(
             db, expense_group_id, user_id
         ):
             raise ForbiddenError("Not a member of this group")
-
-        result = await db.execute(
-            select(Expense)
-            .where(Expense.expense_group_id == expense_group_id)
-            .options(_SHARES_LOADER)
-        )
+        filters = [Expense.expense_group_id == expense_group_id]
     else:
-        result = await db.execute(
-            select(Expense)
-            .where(Expense.payee_id == user_id, Expense.expense_group_id.is_(None))
-            .options(_SHARES_LOADER)
+        filters = [
+            Expense.payee_id == user_id,
+            Expense.expense_group_id.is_(None),
+        ]
+
+    if status == "active":
+        filters.append(Expense.is_deleted.is_(False))
+    elif status == "deleted":
+        filters.append(Expense.is_deleted.is_(True))
+
+    if no_category:
+        filters.append(Expense.category_id.is_(None))
+    elif category_id is not None:
+        filters.append(Expense.category_id == category_id)
+    if payee_id is not None:
+        filters.append(Expense.payee_id == payee_id)
+    if search_kw:
+        kw = f"%{_escape_like(search_kw)}%"
+        filters.append(
+            or_(
+                Expense.name.ilike(kw, escape="\\"),
+                Expense.description.ilike(kw, escape="\\"),
+            )
         )
 
+    total = (
+        await db.execute(select(func.count(Expense.id)).where(*filters))
+    ).scalar_one()
+    total_value = (
+        await db.execute(
+            select(func.coalesce(func.sum(Expense.value), 0.0)).where(*filters)
+        )
+    ).scalar_one()
+
+    sort_column = _SORT_COLUMNS.get(sort_by, Expense.paid_at)
+    order = (
+        sort_column.asc() if sort_dir == "asc" else sort_column.desc()
+    ).nulls_last()
+
+    stmt = (
+        select(Expense)
+        .where(*filters)
+        .options(*_DETAIL_LOADERS)
+        .order_by(order, Expense.id.desc())
+    )
+
+    if page is not None:
+        stmt = stmt.offset((page - 1) * page_size).limit(page_size)
+
+    result = await db.execute(stmt)
+    return list(result.scalars().all()), total, float(total_value)
+
+
+async def get_distinct_payees(
+    db: AsyncSession, user_id: int, expense_group_id: int
+) -> list[User]:
+    if not await is_app_admin(db, user_id) and not await is_group_member(
+        db, expense_group_id, user_id
+    ):
+        raise ForbiddenError("Not a member of this group")
+
+    result = await db.execute(
+        select(User)
+        .join(Expense, Expense.payee_id == User.id)
+        .where(Expense.expense_group_id == expense_group_id)
+        .distinct()
+    )
     return list(result.scalars().all())
 
 
@@ -46,7 +127,7 @@ async def _reload(db: AsyncSession, expense_id: int) -> Expense:
     result = await db.execute(
         select(Expense)
         .where(Expense.id == expense_id)
-        .options(_SHARES_LOADER)
+        .options(*_DETAIL_LOADERS)
         .execution_options(populate_existing=True)
     )
     return result.scalar_one()
@@ -111,7 +192,7 @@ async def _get_authorized(
     db: AsyncSession, expense_id: int, user_id: int, action: str
 ) -> Expense:
     result = await db.execute(
-        select(Expense).where(Expense.id == expense_id).options(_SHARES_LOADER)
+        select(Expense).where(Expense.id == expense_id).options(*_DETAIL_LOADERS)
     )
     expense = result.scalar_one_or_none()
     if not expense:
