@@ -41,6 +41,11 @@ export const Select = ({
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
+      // On mobile, the full-screen backdrop's own onClick closes the dropdown
+      // instead. Closing here on mousedown would unmount the backdrop before
+      // iOS Safari's delayed synthetic click fires, letting that click fall
+      // through onto whatever element ends up underneath.
+      if (isMobile) return;
       if (
         ref.current &&
         !ref.current.contains(e.target as Node) &&

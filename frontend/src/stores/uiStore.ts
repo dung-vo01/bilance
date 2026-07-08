@@ -12,10 +12,13 @@ interface UIState {
   setTheme: (theme: Theme) => void;
 }
 
+const getDefaultSidebarOpen = () =>
+  typeof window !== "undefined" ? window.innerWidth >= 1024 : true;
+
 export const useUIStore = create<UIState>()(
   persist(
     (set, get) => ({
-      sidebarOpen: true,
+      sidebarOpen: getDefaultSidebarOpen(),
       theme: "light",
       setSidebarOpen: (open) => set({ sidebarOpen: open }),
       toggleSidebar: () =>
@@ -32,6 +35,7 @@ export const useUIStore = create<UIState>()(
     }),
     {
       name: "bilance-ui",
+      partialize: (state) => ({ theme: state.theme }),
       onRehydrateStorage: () => (state) => {
         // apply saved theme on page load
         if (state?.theme) {

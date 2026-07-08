@@ -37,6 +37,11 @@ export const NotificationBell = () => {
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
+      // On mobile, the full-screen backdrop's own onClick closes the panel
+      // instead. Closing here on mousedown would unmount the backdrop before
+      // iOS Safari's delayed synthetic click fires, letting that click fall
+      // through onto whatever element ends up underneath.
+      if (isMobile) return;
       if (
         triggerRef.current &&
         !triggerRef.current.contains(e.target as Node) &&

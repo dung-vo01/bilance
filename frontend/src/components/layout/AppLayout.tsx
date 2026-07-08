@@ -1,3 +1,4 @@
+import { useEffect, useRef } from "react";
 import { Outlet, NavLink, useNavigate } from "react-router-dom";
 import { Icon } from "@iconify/react";
 import { useAuthStore } from "@/stores/authStore";
@@ -6,10 +7,26 @@ import { NotificationBell } from "./NotificationBell";
 import { BilanceMark } from "@/components/ui/BilanceMark";
 import styles from "./AppLayout.module.scss";
 
+const DESKTOP_BREAKPOINT = 1024;
+
 export const AppLayout = () => {
   const { user, logout } = useAuthStore();
-  const { sidebarOpen, toggleSidebar, theme, toggleTheme } = useUIStore();
+  const { sidebarOpen, setSidebarOpen, toggleSidebar, theme, toggleTheme } =
+    useUIStore();
   const navigate = useNavigate();
+  const wasDesktop = useRef(window.innerWidth >= DESKTOP_BREAKPOINT);
+
+  useEffect(() => {
+    const handleResize = () => {
+      const isDesktop = window.innerWidth >= DESKTOP_BREAKPOINT;
+      if (isDesktop !== wasDesktop.current) {
+        wasDesktop.current = isDesktop;
+        setSidebarOpen(isDesktop);
+      }
+    };
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, [setSidebarOpen]);
 
   const handleLogout = () => {
     logout();

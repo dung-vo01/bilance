@@ -23,7 +23,9 @@
 
   @include mobile {
     max-height: 100vh;
+    max-height: 100dvh;
     height: 100vh;
+    height: 100dvh;
     border-radius: 0;
     position: fixed;
     bottom: 0;
