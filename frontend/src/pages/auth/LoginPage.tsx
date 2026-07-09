@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useMutation } from "@tanstack/react-query";
+import type { AxiosError } from "axios";
 import { Icon } from "@iconify/react";
 import { authApi } from "@/api";
 import { useAuthStore } from "@/stores/authStore";
@@ -8,6 +9,7 @@ import { useUIStore } from "@/stores/uiStore";
 import { BilanceMark } from "@/components/ui/BilanceMark";
 import { Footer } from "@/components/ui/Footer";
 import { useSlowLoading } from "@/hooks/useSlowLoading";
+import type { ApiError } from "@/types";
 import styles from "./Auth.module.scss";
 
 export const LoginPage = () => {
@@ -24,7 +26,7 @@ export const LoginPage = () => {
       setAuth(user, access_token, refresh_token);
       navigate("/dashboard");
     },
-    onError: (err: any) => {
+    onError: (err: AxiosError<ApiError>) => {
       setError(err.response?.data?.error || "Login failed");
     },
   });

@@ -4,6 +4,7 @@ import { Icon } from "@iconify/react";
 import { useAuthStore } from "@/stores/authStore";
 import { useExpenses } from "@/hooks/queries";
 import { useExpenseGroups } from "@/hooks/queries";
+import type { ExpenseGroup } from "@/types";
 import styles from "./DashboardPage.module.scss";
 
 export const DashboardPage = () => {
@@ -200,7 +201,12 @@ export const DashboardPage = () => {
 };
 
 // Balance summary card — fetches settlement per group and aggregates
-const BalanceSummary = ({ groups }: { groups: any[]; userId: number }) => {
+const BalanceSummary = ({
+  groups,
+}: {
+  groups: ExpenseGroup[];
+  userId: number;
+}) => {
   if (groups.length === 0) {
     return (
       <div className={styles.statCard}>
