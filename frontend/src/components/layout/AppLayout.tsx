@@ -83,20 +83,6 @@ export const AppLayout = () => {
               <span className={styles.firstName}>{user?.firstname}</span>
               <span className={styles.userName}>@{user?.username}</span>
             </div>
-          </div>
-
-          <div className={styles.sidebarActions}>
-            <button
-              onClick={toggleTheme}
-              className={styles.iconBtn}
-              title="Toggle theme"
-            >
-              <Icon
-                icon={theme === "light" ? "ph:moon" : "ph:sun"}
-                width={18}
-                height={18}
-              />
-            </button>
             <button
               onClick={handleLogout}
               className={styles.iconBtn}
