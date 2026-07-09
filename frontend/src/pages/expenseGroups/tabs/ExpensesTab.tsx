@@ -35,9 +35,7 @@ const ExpensesTab = ({ expense_group }: Props) => {
   const current_user = useAuthStore((s) => s.user);
 
   const memberIds = new Set(expense_group.members.map((m) => m.user_id));
-  // Members who paid for something here but have since left/been removed —
-  // they won't be in expense_group.members anymore, but their past expenses
-  // still reference them and should stay filterable/attributable.
+  // payees no longer in the group (left/removed) but still filterable
   const formerPayees = payees.filter((p) => !memberIds.has(p.id));
 
   const getPayeeDisplay = (expense: Expense) => {

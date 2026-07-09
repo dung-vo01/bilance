@@ -141,9 +141,7 @@ select {
   min-height: 100vh;
 }
 
-// iOS Safari auto-zooms the page when a focused input's font-size is below
-// 16px. Most inputs in this app use smaller sizes for visual density, so
-// force 16px on mobile/tablet where the zoom actually triggers.
+// prevent iOS Safari auto-zoom on inputs under 16px
 @media (max-width: 1024px) {
   input,
   textarea,

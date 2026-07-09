@@ -10,6 +10,13 @@
   position: relative;
 }
 
+.pageFooter {
+  position: absolute;
+  bottom: var(--space-4);
+  left: 0;
+  right: 0;
+}
+
 .themeBtn {
   position: absolute;
   top: var(--space-4);
@@ -165,6 +172,12 @@
   border-radius: var(--radius-md);
   color: var(--color-danger);
   font-size: 0.875rem;
+}
+
+.slowNotice {
+  text-align: center;
+  font-size: 0.8125rem;
+  color: var(--color-text-tertiary);
 }
 
 .spin {

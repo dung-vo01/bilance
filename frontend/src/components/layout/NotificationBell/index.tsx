@@ -37,10 +37,7 @@ export const NotificationBell = () => {
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
-      // On mobile, the full-screen backdrop's own onClick closes the panel
-      // instead. Closing here on mousedown would unmount the backdrop before
-      // iOS Safari's delayed synthetic click fires, letting that click fall
-      // through onto whatever element ends up underneath.
+      // mobile closes via the backdrop's onClick instead (avoids iOS click/mousedown race)
       if (isMobile) return;
       if (
         triggerRef.current &&
@@ -93,7 +90,9 @@ export const NotificationBell = () => {
               <strong>{getDisplayName(n.actor)}</strong> invited you to{" "}
               <strong>{groupName}</strong>
             </p>
-            <span className={styles.itemTime}>{formatTimestamp(n.created_at)}</span>
+            <span className={styles.itemTime}>
+              {formatTimestamp(n.created_at)}
+            </span>
             <div className={styles.itemActions}>
               <button
                 type="button"
@@ -139,7 +138,9 @@ export const NotificationBell = () => {
         </div>
         <div className={styles.itemBody}>
           <p className={styles.itemText}>{statusText}</p>
-          <span className={styles.itemTime}>{formatTimestamp(n.created_at)}</span>
+          <span className={styles.itemTime}>
+            {formatTimestamp(n.created_at)}
+          </span>
         </div>
         <button
           type="button"

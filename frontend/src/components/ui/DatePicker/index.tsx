@@ -63,10 +63,7 @@ export const DatePicker = ({ value, onChange, className }: Props) => {
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
-      // On mobile, the full-screen backdrop's own onClick closes the picker
-      // instead. Closing here on mousedown would unmount the backdrop before
-      // iOS Safari's delayed synthetic click fires, letting that click fall
-      // through onto whatever element ends up underneath.
+      // mobile closes via the backdrop's onClick instead (avoids iOS click/mousedown race)
       if (isMobile) return;
       const target = e.target as HTMLElement;
       // ignore clicks inside any portal dropdown

@@ -77,7 +77,8 @@ app is running.
 | PATCH | /api/expense-groups/{id}/members | Bulk update members |
 | DELETE | /api/expense-groups/{id}/members?member_ids=1,2 | Remove members |
 | GET | /api/expense-groups/{id}/settlement | Who-owes-who settlement |
-| GET | /api/expenses | List expenses (personal, or `?expense_group_id=`) |
+| GET | /api/expenses | List expenses (personal, or `?expense_group_id=`). Supports `status`, `search_kw`, `category_id`/`no_category`, `payee_id`, `sort_by`, `sort_dir`; paginates (`{items, total, total_pages}`) when `page` is passed, otherwise returns the full array |
+| GET | /api/expenses/payees?expense_group_id= | Distinct users who've paid an expense in a group, including former members |
 | POST | /api/expenses | Create expense |
 | PATCH/DELETE | /api/expenses/{id} | Update/soft-delete expense |
 | GET | /api/categories | List categories (global + personal/group) |

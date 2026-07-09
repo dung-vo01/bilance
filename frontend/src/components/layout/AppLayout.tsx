@@ -5,6 +5,7 @@ import { useAuthStore } from "@/stores/authStore";
 import { useUIStore } from "@/stores/uiStore";
 import { NotificationBell } from "./NotificationBell";
 import { BilanceMark } from "@/components/ui/BilanceMark";
+import { Footer } from "@/components/ui/Footer";
 import styles from "./AppLayout.module.scss";
 
 const DESKTOP_BREAKPOINT = 1024;
@@ -104,6 +105,8 @@ export const AppLayout = () => {
               <Icon icon="ph:sign-out" width={18} height={18} />
             </button>
           </div>
+
+          <Footer />
         </div>
       </aside>
 

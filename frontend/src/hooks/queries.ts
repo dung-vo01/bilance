@@ -400,10 +400,7 @@ export const useExpensesPaginated = (params: ExpenseListParams) =>
     queryKey: queryKeys.expenses(params),
     queryFn: () => expensesApi.getPaginated(params).then((r) => r.data.data),
     placeholderData: keepPreviousData,
-    // Group expenses are edited by other members too, so don't sit on the
-    // app-wide 5min staleTime — that's fine for solo data (categories,
-    // profile) but would hide a groupmate's new/edited expense for too long.
-    staleTime: 15_000,
+    staleTime: 15_000, // shorter than the app default - groupmates edit these too
   });
 
 export const useExpensePayees = (expenseGroupId: number) =>

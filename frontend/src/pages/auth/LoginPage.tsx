@@ -6,6 +6,8 @@ import { authApi } from "@/api";
 import { useAuthStore } from "@/stores/authStore";
 import { useUIStore } from "@/stores/uiStore";
 import { BilanceMark } from "@/components/ui/BilanceMark";
+import { Footer } from "@/components/ui/Footer";
+import { useSlowLoading } from "@/hooks/useSlowLoading";
 import styles from "./Auth.module.scss";
 
 export const LoginPage = () => {
@@ -32,6 +34,8 @@ export const LoginPage = () => {
     setError("");
     mutate(form);
   };
+
+  const isSlow = useSlowLoading(isPending);
 
   return (
     <div className={styles.container}>
@@ -122,12 +126,21 @@ export const LoginPage = () => {
               "Sign in"
             )}
           </button>
+
+          {isSlow && (
+            <p className={styles.slowNotice}>
+              Still working - the server can take up to a minute to respond
+              after sitting idle.
+            </p>
+          )}
         </form>
 
         <p className={styles.switch}>
           No account? <Link to="/register">Create one</Link>
         </p>
       </div>
+
+      <Footer className={styles.pageFooter} />
     </div>
   );
 };

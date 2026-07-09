@@ -239,10 +239,7 @@ export const ExpenseFormModal = ({
                       value: m.user_id.toString(),
                       label: `${m.user?.username ?? m.user_id}${m.user_id === current_user?.id ? " (you)" : ""}`,
                     })),
-                    // The current payee may have since left/been removed from
-                    // the group. Keep them selectable (as-is, not reassignable
-                    // to other former members) so the field doesn't silently
-                    // appear blank when editing their expense.
+                    // keep a former-member payee selectable so the field isn't blank
                     ...(expense?.payee_id &&
                     !expense_group.members.some(
                       (m) => m.user_id === expense.payee_id,

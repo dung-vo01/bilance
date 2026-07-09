@@ -1,8 +1,11 @@
 import { Icon } from "@iconify/react";
 import { BilanceMark } from "@/components/ui/BilanceMark";
+import { useSlowLoading } from "@/hooks/useSlowLoading";
 import styles from "./LoadingScreen.module.scss";
 
 const LoadingScreen = () => {
+  const isSlow = useSlowLoading(true);
+
   return (
     <div className={styles.container}>
       <div className={styles.logo}>
@@ -18,6 +21,12 @@ const LoadingScreen = () => {
         height={24}
         className={styles.spinner}
       />
+      {isSlow && (
+        <p className={styles.slowNotice}>
+          Still waking up - the server can take up to a minute to respond after
+          sitting idle.
+        </p>
+      )}
     </div>
   );
 };

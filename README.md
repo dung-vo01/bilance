@@ -1,61 +1,53 @@
 # Bilance
 
-## Tech
+A full-stack expense tracker for splitting shared costs with friends,
+roommates, or any group - personal expenses and group expenses with
+custom split ratios, invites, and a settlement view showing who owes who.
 
-Frontend: React TypeScript, Tanstack (React query), Zustand
-Backend: FastAPI, async SQLAlchemy 2.0 (asyncpg)
-Database: PostgresQL
-Host: Vercel
+## Features
 
-## V1
+- Auth with JWT access/refresh tokens
+- Personal expense tracking - search, sort, filter by category/status,
+  paginated
+- Expense groups - create, invite by username, accept/decline, admin
+  controls
+- Per-expense split ratios, independent of a group's default ratio
+- Settlement view - who owes who, and by how much
+- Global and per-group expense categories
+- Notifications for invitations and membership changes
 
-* Auth (register with username + email, login)
-* Personal expense tracking
-* Groups: create, invite by username, accept/decline, admin controls
-* Group expenses with custom split ratios
-* Categories (global + personal)
-* Settlement view (who owes who)
+## Tech stack
 
-## V2 
+**Frontend** - React, TypeScript, Vite, TanStack Query, Zustand, SCSS modules
+**Backend** - FastAPI, SQLAlchemy 2.0 (async), PostgreSQL, Alembic
+**Auth** - JWT (access + refresh), bcrypt password hashing
 
-* Recurring payments
-* Notification system, payment reminder/deadline
-* Phone number registration
-* Images support, AI integrated to extract data from images (maybe in V3 xd)
+## Project structure
 
+```
+backend/    FastAPI app  - see backend/README.md
+frontend/   React app    - see frontend/README.md
+docs/       design notes (expense sharing & settlement rules)
+```
 
-## Update mechanism on expense in group and settlement (V1 22nd June)
+## Getting started
 
-ExpenseGroupMember (existing table)
-* user_id
-* expense_group_id
-* default_split_ratio  (renamed from split_ratio, this will be the default split ratio)
+Follow the setup steps in [`backend/README.md`](backend/README.md) and
+[`frontend/README.md`](frontend/README.md) to run the API and the app
+locally.
 
+> **Note:** if the backend is running on a free-tier host, it spins down
+> when idle - the first request after a while can take up to a minute to
+> wake it back up. The app shows a "waking up the server" message during
+> that wait so it doesn't look stuck; subsequent requests are fast.
 
-ExpenseShare (new table, unique for each member/expense)
-* expense_id
-* user_id
-* ratio   (snapshotted ratio, editable per expense)
-* amount  (value * ratio, recalculated on save)
+## Roadmap
 
-Rules:
-* When expense is created → auto-generate ExpenseShare rows from current member default_split_ratio
-* User can edit shares on any expense — adjust existing individual ratios, add any current group member who wasn't in the original share, ratios must always sum to 1.0
-* Settlement reads from ExpenseShare exclusively
-* Changing default_split_ratio on a member → only affects future expenses
-* Past expense shares are immutable unless explicitly edited
+- Recurring payments
+- Payment due-date reminders
+- Phone number registration
+- Receipt image upload with AI-assisted data extraction
 
-UI flow:
-* Create expense → shares auto-calculated, shown as preview → user can adjust before saving
-* Edit expense → can edit shares tab alongside name/amount/category
-* Each expense detail shows "Shared between: John 60%, Bob 40%"
+## License
 
-Settlement - for each user:
-* paid = sum of expenses where payee_id = user_id
-* owes = sum of ExpenseShare.amount where user_id = user_id
-* balance = paid - owes
-
-Edge cases:
-* Member was removed from group but has shares on old expenses → keep their share, show as "former member"
-* Member is added to the share but ratio would exceed 1.0 → validate and show error (frontend & backend) 
-* All ratios set to 0 except one → valid, that person owes everything
+&copy; 2026 Dung Vo. All rights reserved.
