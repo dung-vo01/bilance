@@ -38,6 +38,8 @@ export const queryKeys = {
   expenses: (params?: object) => ["expenses", params] as const,
   expensePayees: (expenseGroupId: number) =>
     ["expenses", "payees", expenseGroupId] as const,
+  categoryBreakdown: (days: number, expenseGroupId?: number) =>
+    ["expenses", "category-breakdown", days, expenseGroupId] as const,
   notifications: ["notifications"] as const,
 };
 
@@ -409,6 +411,15 @@ export const useExpensePayees = (expenseGroupId: number) =>
     queryFn: () =>
       expensesApi.getPayees(expenseGroupId).then((r) => r.data.data),
     staleTime: 15_000,
+  });
+
+export const useCategoryBreakdown = (days: number, expenseGroupId?: number) =>
+  useQuery({
+    queryKey: queryKeys.categoryBreakdown(days, expenseGroupId),
+    queryFn: () =>
+      expensesApi
+        .getCategoryBreakdown(days, expenseGroupId)
+        .then((r) => r.data.data),
   });
 
 export const useCreateExpense = () => {

@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 
 from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -6,7 +6,7 @@ from sqlalchemy.orm import selectinload
 
 from app.core.authz import is_app_admin, is_group_member
 from app.core.exceptions import AppError, ForbiddenError, NotFoundError
-from app.models import Expense, ExpenseShare, User
+from app.models import Category, Expense, ExpenseShare, User
 from app.schemas.expense import ExpenseCreate, ExpenseUpdate
 
 _DETAIL_LOADERS = (
@@ -115,6 +115,57 @@ async def get_distinct_payees(
         .distinct()
     )
     return list(result.scalars().all())
+
+
+async def get_category_breakdown(
+    db: AsyncSession,
+    user_id: int,
+    days: int,
+    expense_group_id: int | None = None,
+) -> dict:
+    cutoff = datetime.now(timezone.utc) - timedelta(days=days)
+
+    if expense_group_id:
+        if not await is_app_admin(db, user_id) and not await is_group_member(
+            db, expense_group_id, user_id
+        ):
+            raise ForbiddenError("Not a member of this group")
+        scope_filter = Expense.expense_group_id == expense_group_id
+    else:
+        scope_filter = (Expense.payee_id == user_id) & Expense.expense_group_id.is_(
+            None
+        )
+
+    stmt = (
+        select(
+            Expense.category_id,
+            Category.name,
+            func.sum(Expense.value),
+        )
+        .outerjoin(Category, Category.id == Expense.category_id)
+        .where(
+            scope_filter,
+            Expense.is_deleted.is_(False),
+            Expense.paid_at.is_not(None),
+            Expense.paid_at >= cutoff,
+        )
+        .group_by(Expense.category_id, Category.name)
+        .order_by(func.sum(Expense.value).desc())
+    )
+    rows = (await db.execute(stmt)).all()
+
+    total = sum(row[2] for row in rows)
+    categories = [
+        {
+            "category_id": category_id,
+            "category_name": name or "No category",
+            "total": float(value),
+            "percentage": round(value / total * 100, 2) if total else 0.0,
+        }
+        for category_id, name, value in rows
+    ]
+
+    return {"period_days": days, "total": float(total), "categories": categories}
 
 
 def _validate_ratios_sum_to_one(shares: list) -> None:

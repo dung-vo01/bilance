@@ -72,6 +72,19 @@ async def list_payees(
     )
 
 
+@router.get("/category-breakdown")
+async def category_breakdown(
+    days: int = Query(30, ge=1, le=365),
+    expense_group_id: int | None = Query(None),
+    user_id: int = Depends(get_current_user_id),
+    db: AsyncSession = Depends(get_db),
+):
+    data = await expense_service.get_category_breakdown(
+        db, user_id, days, expense_group_id
+    )
+    return envelope(data)
+
+
 @router.post("", status_code=201)
 async def create_personal(
     data: ExpenseCreate,

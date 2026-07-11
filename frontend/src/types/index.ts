@@ -257,3 +257,16 @@ export interface PaginatedExpenses {
   page_size: number;
   total_pages: number;
 }
+
+export interface CategoryBreakdownItem {
+  category_id: number | null;
+  category_name: string;
+  total: number;
+  percentage: number;
+}
+
+export interface CategoryBreakdown {
+  period_days: number;
+  total: number;
+  categories: CategoryBreakdownItem[];
+}

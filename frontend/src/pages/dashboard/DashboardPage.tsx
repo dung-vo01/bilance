@@ -5,6 +5,7 @@ import { useAuthStore } from "@/stores/authStore";
 import { useExpenses } from "@/hooks/queries";
 import { useExpenseGroups } from "@/hooks/queries";
 import type { ExpenseGroup } from "@/types";
+import { CategoryBreakdownCard } from "@/components/CategoryBreakdownCard";
 import styles from "./DashboardPage.module.scss";
 
 export const DashboardPage = () => {
@@ -86,6 +87,8 @@ export const DashboardPage = () => {
 
         <BalanceSummary groups={groups} userId={user?.id ?? 0} />
       </div>
+
+      <CategoryBreakdownCard />
 
       <div className={styles.section}>
         <div className={styles.sectionHeader}>

@@ -21,6 +21,7 @@ import { useAuthStore } from "@/stores/authStore";
 import { ConfirmModal } from "@/components/ui/ConfirmModal";
 import { Select } from "@/components/ui/Select";
 import { Pagination } from "@/components/ui/Pagination";
+import { CategoryBreakdownCard } from "@/components/CategoryBreakdownCard";
 
 type Props = {
   expense_group: ExpenseGroup;
@@ -146,6 +147,8 @@ const ExpensesTab = ({ expense_group }: Props) => {
 
   return (
     <div className={styles.section}>
+      <CategoryBreakdownCard expenseGroupId={expense_group.id} />
+
       <div className={styles.sectionHeader}>
         <div className={styles.filters}>
           {(["active", "all", "deleted"] as const).map((f) => (

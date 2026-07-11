@@ -11,6 +11,7 @@ import styles from "./ExpensesPage.module.scss";
 import { ConfirmModal } from "@/components/ui/ConfirmModal";
 import { Select } from "@/components/ui/Select";
 import { Pagination } from "@/components/ui/Pagination";
+import { CategoryBreakdownCard } from "@/components/CategoryBreakdownCard";
 import { ExpenseFormModal } from "./ExpenseFormModal";
 import { ExpenseDetailsModal } from "./ExpenseDetailsModal";
 import {
@@ -135,6 +136,8 @@ export const ExpensesPage = () => {
           Add expense
         </button>
       </div>
+
+      <CategoryBreakdownCard />
 
       <div className={styles.toolbar}>
         <div className={styles.filters}>

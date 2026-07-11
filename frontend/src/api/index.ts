@@ -18,6 +18,7 @@ import type {
   NewUserPayload,
   ExpenseListParams,
   PaginatedExpenses,
+  CategoryBreakdown,
 } from "@/types";
 
 //--------------------------------------------------------------------------------
@@ -139,6 +140,11 @@ export const expensesApi = {
   getPayees: (expense_group_id: number) =>
     api.get<{ data: User[] }>("/expenses/payees", {
       params: { expense_group_id },
+    }),
+
+  getCategoryBreakdown: (days: number, expense_group_id?: number) =>
+    api.get<{ data: CategoryBreakdown }>("/expenses/category-breakdown", {
+      params: { days, expense_group_id },
     }),
 
   create: (data: NewExpensePayload) =>
