@@ -6,7 +6,12 @@ A full-stack expense tracker for splitting shared costs with friends,
 roommates, or any group - personal expenses and group expenses with
 custom split ratios, invites, and a settlement view showing who owes who.
 
-**[Live demo →](https://bilance.vercel.app/)**
+**<a href="https://bilance.vercel.app/" target="_blank" rel="noopener noreferrer">Live demo</a>**
+
+> **Note:** the backend is on a free-tier host and spins down when idle, so
+> the first request can take up to a minute to wake it back up. The app
+> shows a "waking up the server" message during that wait so it doesn't
+> look stuck; subsequent requests are fast.
 
 ## Screenshots
 
@@ -44,11 +49,6 @@ docs/       design notes (expense sharing & settlement rules)
 Follow the setup steps in [`backend/README.md`](backend/README.md) and
 [`frontend/README.md`](frontend/README.md) to run the API and the app
 locally.
-
-> **Note:** if the backend is running on a free-tier host, it spins down
-> when idle - the first request after a while can take up to a minute to
-> wake it back up. The app shows a "waking up the server" message during
-> that wait so it doesn't look stuck; subsequent requests are fast.
 
 ## Roadmap
 
