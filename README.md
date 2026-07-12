@@ -1,8 +1,17 @@
 # Bilance
 
+[![CI](https://github.com/dung-vo01/bilance/actions/workflows/ci.yml/badge.svg)](https://github.com/dung-vo01/bilance/actions/workflows/ci.yml)
+
 A full-stack expense tracker for splitting shared costs with friends,
 roommates, or any group - personal expenses and group expenses with
 custom split ratios, invites, and a settlement view showing who owes who.
+
+**[Live demo →](https://bilance.vercel.app/)**
+
+## Screenshots
+
+![Dashboard](docs/screenshots/dashboard.png)
+![Expense split](docs/screenshots/settlement.png)
 
 ## Features
 
@@ -18,9 +27,9 @@ custom split ratios, invites, and a settlement view showing who owes who.
 
 ## Tech stack
 
-**Frontend** - React, TypeScript, Vite, TanStack Query, Zustand, SCSS modules
-**Backend** - FastAPI, SQLAlchemy 2.0 (async), PostgreSQL, Alembic
-**Auth** - JWT (access + refresh), bcrypt password hashing
+- **Frontend** - React, TypeScript, Vite, TanStack Query, Zustand, SCSS modules
+- **Backend** - FastAPI, SQLAlchemy 2.0 (async), PostgreSQL, Alembic
+- **Auth** - JWT (access + refresh), bcrypt password hashing
 
 ## Project structure
 
@@ -47,6 +56,7 @@ locally.
 - Payment due-date reminders
 - Phone number registration
 - Receipt image upload with AI-assisted data extraction
+- Email sign-up and email notifications (invitations, reminders)
 
 ## License
 
