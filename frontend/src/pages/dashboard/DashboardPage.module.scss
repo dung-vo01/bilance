@@ -109,6 +109,14 @@
   color: var(--color-text-tertiary);
 }
 
+.positive {
+  color: var(--color-primary) !important;
+}
+
+.negative {
+  color: var(--color-danger) !important;
+}
+
 .section {
   display: flex;
   flex-direction: column;

@@ -1,9 +1,10 @@
 import { useMemo } from "react";
 import { Link } from "react-router-dom";
+import { useQueries } from "@tanstack/react-query";
 import { Icon } from "@iconify/react";
 import { useAuthStore } from "@/stores/authStore";
-import { useExpenses } from "@/hooks/queries";
-import { useExpenseGroups } from "@/hooks/queries";
+import { useExpenses, useExpenseGroups, queryKeys } from "@/hooks/queries";
+import { expenseGroupsApi } from "@/api";
 import type { ExpenseGroup } from "@/types";
 import { CategoryBreakdownCard } from "@/components/CategoryBreakdownCard";
 import styles from "./DashboardPage.module.scss";
@@ -206,10 +207,19 @@ export const DashboardPage = () => {
 // Balance summary card — fetches settlement per group and aggregates
 const BalanceSummary = ({
   groups,
+  userId,
 }: {
   groups: ExpenseGroup[];
   userId: number;
 }) => {
+  const settlementQueries = useQueries({
+    queries: groups.map((g) => ({
+      queryKey: queryKeys.settlement(g.id),
+      queryFn: () =>
+        expenseGroupsApi.getSettlement(g.id).then((r) => r.data.data),
+    })),
+  });
+
   if (groups.length === 0) {
     return (
       <div className={styles.statCard}>
@@ -223,16 +233,38 @@ const BalanceSummary = ({
     );
   }
 
+  const isLoading = settlementQueries.some((q) => q.isLoading);
+  const balance = settlementQueries.reduce((sum, q) => {
+    const member = q.data?.members.find((m) => m.user_id === userId);
+    return sum + (member?.balance ?? 0);
+  }, 0);
+
+  const balanceLabel =
+    balance > 0 ? "you'll get back" : balance < 0 ? "you owe" : "settled up";
+
   return (
     <div className={styles.statCard}>
       <div className={styles.statLabel}>
         <Icon icon="ph:arrows-left-right" width={16} height={16} />
         Net balance
       </div>
-      <div className={styles.statValue}>—</div>
-      <p className={styles.statSub}>
-        <Link to="/expense_groups">view groups</Link>
-      </p>
+      {isLoading ? (
+        <Icon
+          icon="ph:circle-notch"
+          width={22}
+          height={22}
+          className={styles.spin}
+        />
+      ) : (
+        <div
+          className={`${styles.statValue} ${
+            balance > 0 ? styles.positive : balance < 0 ? styles.negative : ""
+          }`}
+        >
+          €{Math.abs(balance).toFixed(2)}
+        </div>
+      )}
+      <p className={styles.statSub}>{balanceLabel}</p>
     </div>
   );
 };
