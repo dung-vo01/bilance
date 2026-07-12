@@ -110,7 +110,8 @@ const SettlementTab = ({ settlement, expense_group, expenses }: Props) => {
                       m.balance >= 0 ? styles.positive : styles.negative
                     }`}
                   >
-                    {m.balance >= 0 ? "+" : ""}€{m.balance.toFixed(2)}
+                    {m.balance >= 0 ? "+" : "-"}€
+                    {Math.abs(m.balance).toFixed(2)}
                   </span>
                 </div>
               );
