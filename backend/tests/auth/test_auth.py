@@ -11,8 +11,9 @@ async def test_register_success(client):
     body = response.json()
     assert body["success"] is True
     assert body["data"]["user"]["username"] == "alice"
-    assert "access_token" in body["data"]
-    assert "refresh_token" in body["data"]
+    assert body["data"]["user"]["is_email_verified"] is False
+    assert "access_token" not in body["data"]
+    assert "refresh_token" not in body["data"]
 
 
 @pytest.mark.asyncio

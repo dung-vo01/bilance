@@ -178,6 +178,79 @@ async def test_invite_requires_admin(client, auth_headers, create_user):
 
 
 @pytest.mark.asyncio
+async def test_invite_sends_email_only_for_group_invitation(
+    client, auth_headers, create_user, monkeypatch
+):
+    sent = []
+
+    async def fake_send_invitation(
+        to, invitee_firstname, invitee_username, inviter_name, group_name
+    ):
+        sent.append(to)
+
+    async def fail_if_called(*args, **kwargs):
+        raise AssertionError("should not send an email for members_invited")
+
+    monkeypatch.setattr(
+        "app.services.email_service.send_group_invitation_email", fake_send_invitation
+    )
+
+    headers_alice, alice = await auth_headers(
+        username="alice", email="alice@example.com"
+    )
+    dave = await create_user(username="dave", email="dave@example.com")
+    bob = await create_user(username="bob", email="bob@example.com")
+
+    create_resp = await client.post(
+        "/api/expense-groups",
+        headers=headers_alice,
+        json={"name": "Trip", "members": [{"id": dave.id, "role": "admin"}]},
+    )
+    group_id = create_resp.json()["data"]["id"]
+
+    response = await client.post(
+        f"/api/expense-groups/{group_id}/invite",
+        headers=headers_alice,
+        json={"members": [{"username": "bob", "default_split_ratio": 0.5}]},
+    )
+    assert response.status_code == 200
+    # Only bob's GROUP_INVITATION email should be attempted; dave's MEMBERS_INVITED
+    # admin-notification must not trigger fail_if_called since it's never wired up.
+    assert sent == ["bob@example.com"]
+    assert alice and dave and bob
+
+
+@pytest.mark.asyncio
+async def test_invite_skips_email_when_recipient_has_no_email(
+    client, auth_headers, create_user, monkeypatch
+):
+    called = []
+
+    async def fake_send_invitation(*args, **kwargs):
+        called.append(args)
+
+    monkeypatch.setattr(
+        "app.services.email_service.send_group_invitation_email", fake_send_invitation
+    )
+
+    headers_alice, _ = await auth_headers(username="alice", email="alice@example.com")
+    await create_user(username="noemail", email=None)
+
+    create_resp = await client.post(
+        "/api/expense-groups", headers=headers_alice, json={"name": "Trip"}
+    )
+    group_id = create_resp.json()["data"]["id"]
+
+    response = await client.post(
+        f"/api/expense-groups/{group_id}/invite",
+        headers=headers_alice,
+        json={"members": [{"username": "noemail", "default_split_ratio": 0.5}]},
+    )
+    assert response.status_code == 200
+    assert called == []
+
+
+@pytest.mark.asyncio
 async def test_bulk_update_members_self_vs_admin_permissions(
     client, auth_headers, create_user
 ):

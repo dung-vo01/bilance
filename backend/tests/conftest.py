@@ -28,7 +28,10 @@ async def db_session(test_engine):
     async with test_engine.connect() as conn:
         trans = await conn.begin()
         session = AsyncSession(
-            bind=conn, expire_on_commit=False, join_transaction_mode="create_savepoint"
+            bind=conn,
+            expire_on_commit=False,
+            autoflush=False,
+            join_transaction_mode="create_savepoint",
         )
         try:
             yield session
@@ -56,6 +59,7 @@ async def create_user(db_session):
         email: str = "test@example.com",
         password: str = "password123",
         role: AppRole = AppRole.MEMBER,
+        is_email_verified: bool = True,
     ) -> User:
         user = User(
             username=username,
@@ -63,6 +67,7 @@ async def create_user(db_session):
             password_hash=await hash_password(password),
             role=role,
             is_active=True,
+            is_email_verified=is_email_verified,
         )
         db_session.add(user)
         await db_session.commit()
