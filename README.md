@@ -20,7 +20,9 @@ custom split ratios, invites, and a settlement view showing who owes who.
 
 ## Features
 
-- Auth with JWT access/refresh tokens
+- Auth with JWT access/refresh tokens, email verification, and password reset
+- Guest mode - try the app instantly with a pre-seeded sandbox account, no
+  signup required
 - Personal expense tracking - search, sort, filter by category/status,
   paginated
 - Expense groups - create, invite by username, accept/decline, admin
@@ -28,13 +30,15 @@ custom split ratios, invites, and a settlement view showing who owes who.
 - Per-expense split ratios, independent of a group's default ratio
 - Settlement view - who owes who, and by how much
 - Global and per-group expense categories
-- Notifications for invitations and membership changes
+- Notifications for invitations and membership changes, with email
+  notifications for group invitations
 
 ## Tech stack
 
 - **Frontend** - React, TypeScript, Vite, TanStack Query, Zustand, SCSS modules
 - **Backend** - FastAPI, SQLAlchemy 2.0 (async), PostgreSQL, Alembic
-- **Auth** - JWT (access + refresh), bcrypt password hashing
+- **Auth** - JWT (access + refresh), bcrypt password hashing, email
+  verification via Resend
 
 ## Project structure
 
@@ -56,7 +60,6 @@ locally.
 - Payment due-date reminders
 - Phone number registration
 - Receipt image upload with AI-assisted data extraction
-- Email sign-up and email notifications (invitations, reminders)
 
 ## License
 

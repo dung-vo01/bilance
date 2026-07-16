@@ -1,10 +1,12 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Outlet, NavLink, useNavigate } from "react-router-dom";
 import { Icon } from "@iconify/react";
 import { useAuthStore } from "@/stores/authStore";
 import { useUIStore } from "@/stores/uiStore";
+import { useGuestLogout } from "@/hooks/queries";
 import { NotificationBell } from "./NotificationBell";
 import { BilanceMark } from "@/components/ui/BilanceMark";
+import { ConfirmModal } from "@/components/ui/ConfirmModal";
 import { Footer } from "@/components/ui/Footer";
 import styles from "./AppLayout.module.scss";
 
@@ -16,6 +18,8 @@ export const AppLayout = () => {
     useUIStore();
   const navigate = useNavigate();
   const wasDesktop = useRef(window.innerWidth >= DESKTOP_BREAKPOINT);
+  const [showGuestLogoutConfirm, setShowGuestLogoutConfirm] = useState(false);
+  const { mutate: guestLogout } = useGuestLogout();
 
   useEffect(() => {
     const handleResize = () => {
@@ -29,9 +33,24 @@ export const AppLayout = () => {
     return () => window.removeEventListener("resize", handleResize);
   }, [setSidebarOpen]);
 
-  const handleLogout = () => {
+  const finishLogout = () => {
     logout();
     navigate("/login");
+  };
+
+  const handleLogout = () => {
+    if (user?.is_guest) {
+      setShowGuestLogoutConfirm(true);
+      return;
+    }
+    finishLogout();
+  };
+
+  const confirmGuestLogout = () => {
+    setShowGuestLogoutConfirm(false);
+    // Best-effort: the account gets swept by the TTL cleanup either way,
+    // so a failed request here shouldn't block signing the user out locally.
+    guestLogout(undefined, { onSettled: finishLogout });
   };
 
   const navItems = [
@@ -118,10 +137,28 @@ export const AppLayout = () => {
             </button>
           </div>
         </header>
+        {user?.is_guest && (
+          <div className={styles.guestBanner}>
+            <Icon icon="ph:info" width={16} height={16} />
+            You're exploring as a guest - this data is deleted when you sign
+            out, or automatically after 24 hours.
+          </div>
+        )}
         <main className={styles.content}>
           <Outlet />
         </main>
       </div>
+
+      {showGuestLogoutConfirm && (
+        <ConfirmModal
+          title="Sign out and delete guest data?"
+          message="This will permanently delete your guest account and everything in it - expenses, groups, all of it. This can't be undone."
+          confirmLabel="Sign out & delete"
+          danger
+          onConfirm={confirmGuestLogout}
+          onCancel={() => setShowGuestLogoutConfirm(false)}
+        />
+      )}
     </div>
   );
 };

@@ -7,6 +7,8 @@ export interface User {
   phone_number: string | null;
   role: "admin" | "member";
   is_active: boolean;
+  is_email_verified: boolean;
+  is_guest: boolean;
   created_at: string;
 }
 

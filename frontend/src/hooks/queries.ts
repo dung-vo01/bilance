@@ -72,6 +72,53 @@ export const useMe = () => {
   });
 };
 
+export const useGuestLogin = () => {
+  const qc = useQueryClient();
+  const setAuth = useAuthStore((s) => s.setAuth);
+  return useMutation({
+    mutationFn: () => authApi.guestLogin(),
+    onSuccess: (res) => {
+      const { user, access_token, refresh_token } = res.data.data;
+      setAuth(user, access_token, refresh_token);
+      qc.setQueryData(queryKeys.me, user);
+    },
+  });
+};
+
+export const useGuestLogout = () =>
+  useMutation({
+    mutationFn: () => authApi.guestLogout(),
+  });
+
+export const useVerifyEmail = (token: string | undefined) =>
+  useQuery({
+    queryKey: ["verify-email", token],
+    queryFn: () => authApi.verifyEmail(token!).then((r) => r.data.data),
+    enabled: Boolean(token),
+    retry: false,
+  });
+
+export const useResendVerification = () =>
+  useMutation({
+    mutationFn: (email: string) => authApi.resendVerification(email),
+  });
+
+export const useForgotPassword = () =>
+  useMutation({
+    mutationFn: (email: string) => authApi.forgotPassword(email),
+  });
+
+export const useResetPassword = () =>
+  useMutation({
+    mutationFn: ({
+      token,
+      new_password,
+    }: {
+      token: string;
+      new_password: string;
+    }) => authApi.resetPassword(token, new_password),
+  });
+
 //--------------------------------------------------------------------------------
 // Users
 //--------------------------------------------------------------------------------

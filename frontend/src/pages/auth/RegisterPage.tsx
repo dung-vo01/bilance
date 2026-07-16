@@ -4,18 +4,13 @@ import { useMutation } from "@tanstack/react-query";
 import type { AxiosError } from "axios";
 import { Icon } from "@iconify/react";
 import { authApi } from "@/api";
-import { useAuthStore } from "@/stores/authStore";
-import { useUIStore } from "@/stores/uiStore";
-import { BilanceMark } from "@/components/ui/BilanceMark";
-import { Footer } from "@/components/ui/Footer";
+import { AuthLayout } from "@/components/auth/AuthLayout";
 import { useSlowLoading } from "@/hooks/useSlowLoading";
 import type { ApiError } from "@/types";
 import styles from "./Auth.module.scss";
 
 export const RegisterPage = () => {
   const navigate = useNavigate();
-  const setAuth = useAuthStore((s) => s.setAuth);
-  const { theme, toggleTheme } = useUIStore();
   const [form, setForm] = useState({
     username: "",
     email: "",
@@ -28,10 +23,8 @@ export const RegisterPage = () => {
 
   const { mutate, isPending } = useMutation({
     mutationFn: authApi.register,
-    onSuccess: (res) => {
-      const { user, access_token, refresh_token } = res.data.data;
-      setAuth(user, access_token, refresh_token);
-      navigate("/dashboard");
+    onSuccess: () => {
+      navigate("/check-email", { state: { email: form.email } });
     },
     onError: (err: AxiosError<ApiError>) => {
       setError(err.response?.data?.error || "Registration failed");
@@ -47,31 +40,8 @@ export const RegisterPage = () => {
   const isSlow = useSlowLoading(isPending);
 
   return (
-    <div className={styles.container}>
-      <button
-        onClick={toggleTheme}
-        className={styles.themeBtn}
-        title="Toggle theme"
-      >
-        <Icon
-          icon={theme === "light" ? "ph:moon" : "ph:sun"}
-          width={20}
-          height={20}
-        />
-      </button>
-
-      <div className={styles.card}>
-        <div className={styles.logoWrap}>
-          <div className={styles.logo}>
-            <BilanceMark size={40} />
-            <span>
-              <span className={styles.logoBi}>Bi</span>
-              <span className={styles.logoLance}>lance</span>
-            </span>
-          </div>
-          <p className={styles.tagline}>balance what you owe</p>
-        </div>
-
+    <AuthLayout>
+      <>
         <form onSubmit={handleSubmit} className={styles.form}>
           {error && (
             <div className={styles.error}>
@@ -210,9 +180,7 @@ export const RegisterPage = () => {
         <p className={styles.switch}>
           Already have an account? <Link to="/login">Sign in</Link>
         </p>
-      </div>
-
-      <Footer className={styles.pageFooter} />
-    </div>
+      </>
+    </AuthLayout>
   );
 };

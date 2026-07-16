@@ -31,12 +31,36 @@ export const authApi = {
     password: string;
     firstname?: string;
     lastname?: string;
-  }) => api.post<{ data: AuthTokens }>("/auth/register", data),
+  }) => api.post<{ data: { user: User } }>("/auth/register", data),
 
   login: (data: { email: string; password: string }) =>
     api.post<{ data: AuthTokens }>("/auth/login", data),
 
   me: () => api.get<{ data: User }>("/auth/me"),
+
+  verifyEmail: (token: string) =>
+    api.post<{ data: { user: User } }>(`/auth/verify-email/${token}`),
+
+  resendVerification: (email: string) =>
+    api.post<{ data: { message: string } }>("/auth/resend-verification", {
+      email,
+    }),
+
+  forgotPassword: (email: string) =>
+    api.post<{ data: { message: string } }>("/auth/forgot-password", {
+      email,
+    }),
+
+  resetPassword: (token: string, new_password: string) =>
+    api.post<{ data: { message: string } }>("/auth/reset-password", {
+      token,
+      new_password,
+    }),
+
+  guestLogout: () =>
+    api.post<{ data: { message: string } }>("/auth/guest/logout"),
+
+  guestLogin: () => api.post<{ data: AuthTokens }>("/auth/guest"),
 };
 
 //--------------------------------------------------------------------------------

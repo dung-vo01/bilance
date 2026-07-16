@@ -11,6 +11,14 @@ pip install -r requirements.txt
 cp .env.example .env      # fill in your values
 ```
 
+Email (verification, password reset, group-invitation notices) is sent via
+[Resend](https://resend.com). Without a `RESEND_API_KEY` set, sends are
+skipped with a log line instead of failing, so local dev works without an
+account - set it once you actually need emails to go out. Resend's sandbox
+sender (the `.env.example` default) only delivers to the address on your own
+Resend account; sending to arbitrary users requires verifying your own
+domain and updating `EMAIL_FROM` to use it.
+
 ## Database
 
 ```bash
@@ -61,8 +69,14 @@ app is running.
 | Method | Endpoint | Description |
 |--------|----------|-------------|
 | GET | /health | Liveness/readiness (checks DB) |
-| POST | /api/auth/register | Register |
-| POST | /api/auth/login | Login |
+| POST | /api/auth/register | Register - creates an unverified account and emails a verification link; does not return tokens |
+| POST | /api/auth/verify-email/{token} | Verify email from the emailed link |
+| POST | /api/auth/resend-verification | Resend the verification email (enumeration-safe response) |
+| POST | /api/auth/forgot-password | Email a password-reset link (enumeration-safe response) |
+| POST | /api/auth/reset-password | Set a new password from a reset token |
+| POST | /api/auth/guest | Create and log into a pre-seeded guest sandbox account, no signup required |
+| POST | /api/auth/guest/logout | Immediately delete the current guest's account and data (real users get a 403) |
+| POST | /api/auth/login | Login - blocked with 403 until the account's email is verified |
 | POST | /api/auth/refresh | Refresh token (refresh JWT as Bearer header) |
 | GET | /api/auth/me | Current user |
 | GET | /api/users | List/search users |
@@ -71,7 +85,7 @@ app is running.
 | GET | /api/expense-groups | List my groups |
 | POST | /api/expense-groups | Create group |
 | GET/PATCH/DELETE | /api/expense-groups/{id} | Get/update/delete group |
-| POST | /api/expense-groups/{id}/invite | Invite members (creates a pending notification, not an immediate membership) |
+| POST | /api/expense-groups/{id}/invite | Invite members (creates a pending notification and emails the invitee, not an immediate membership) |
 | POST | /api/expense-groups/{id}/leave | Leave group |
 | PATCH | /api/expense-groups/{id}/members/{user_id} | Update one member |
 | PATCH | /api/expense-groups/{id}/members | Bulk update members |

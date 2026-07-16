@@ -91,6 +91,7 @@
 
 .settlementInfo {
   flex: 1;
+  min-width: 0;
   display: flex;
   flex-direction: column;
   gap: var(--space-1);
@@ -100,6 +101,9 @@
   font-size: 0.9375rem;
   font-weight: 500;
   color: var(--color-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .settlementRow {
