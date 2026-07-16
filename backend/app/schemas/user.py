@@ -13,6 +13,8 @@ class UserOut(BaseModel):
     lastname: str | None = None
     role: AppRole
     is_active: bool
+    is_email_verified: bool
+    is_guest: bool
     phone_number: str | None = None
     created_at: datetime
 

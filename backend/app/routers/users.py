@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, BackgroundTasks, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.deps import get_current_user_id
@@ -6,7 +6,7 @@ from app.db.session import get_db
 from app.schemas.auth import RegisterRequest
 from app.schemas.common import envelope
 from app.schemas.user import UserOut, UserUpdate
-from app.services import user_service
+from app.services import email_service, user_service
 
 router = APIRouter()
 
@@ -25,10 +25,19 @@ async def get_users(
 @router.post("", status_code=201)
 async def add_user(
     data: RegisterRequest,
+    background_tasks: BackgroundTasks,
     current_user_id: int = Depends(get_current_user_id),
     db: AsyncSession = Depends(get_db),
 ):
-    user = await user_service.create(db, current_user_id, data)
+    user, token = await user_service.create(db, current_user_id, data)
+    if user.email:
+        background_tasks.add_task(
+            email_service.send_verification_email,
+            user.email,
+            user.firstname,
+            user.username,
+            token,
+        )
     return envelope(UserOut.model_validate(user).model_dump(mode="json"))
 
 

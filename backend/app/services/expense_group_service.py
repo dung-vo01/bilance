@@ -243,7 +243,9 @@ async def invite(
         select(Notification)
         .where(Notification.id.in_(ids))
         .options(
-            selectinload(Notification.actor), selectinload(Notification.expense_group)
+            selectinload(Notification.actor),
+            selectinload(Notification.recipient),
+            selectinload(Notification.expense_group),
         )
     )
     return list(result.scalars().all())

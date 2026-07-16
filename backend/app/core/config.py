@@ -21,6 +21,13 @@ class Settings(BaseSettings):
     CORS_ORIGINS: str = "http://localhost:5173"
     LOG_LEVEL: str = "INFO"
 
+    RESEND_API_KEY: str = ""
+    EMAIL_FROM: str = "Bilance <onboarding@resend.dev>"
+    FRONTEND_URL: str = "http://localhost:5173"
+    EMAIL_VERIFICATION_EXPIRE_HOURS: int = 24
+    PASSWORD_RESET_EXPIRE_MINUTES: int = 30
+    GUEST_ACCOUNT_TTL_HOURS: int = 24
+
     @property
     def cors_origins_list(self) -> list[str]:
         return [

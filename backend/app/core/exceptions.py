@@ -39,6 +39,16 @@ class ServerError(AppError):
         super().__init__(message, 500)
 
 
+class EmailNotVerifiedError(AppError):
+    def __init__(self, message: str = "Please verify your email before logging in"):
+        super().__init__(message, 403)
+
+
+class InvalidTokenError(AppError):
+    def __init__(self, message: str = "Invalid or expired token"):
+        super().__init__(message, 400)
+
+
 def register_exception_handlers(app: FastAPI) -> None:
     @app.exception_handler(AppError)
     async def app_error_handler(request: Request, exc: AppError):

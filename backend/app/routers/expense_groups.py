@@ -1,8 +1,9 @@
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, BackgroundTasks, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.deps import get_current_user_id
 from app.db.session import get_db
+from app.models.notification import NotificationType
 from app.schemas.common import envelope
 from app.schemas.expense_group import (
     BulkMemberUpdateRequest,
@@ -15,7 +16,7 @@ from app.schemas.expense_group import (
 )
 from app.schemas.notification import NotificationOut
 from app.schemas.settlement import SettlementOut
-from app.services import expense_group_service, settlement_service
+from app.services import email_service, expense_group_service, settlement_service
 
 router = APIRouter()
 
@@ -75,12 +76,23 @@ async def delete_group(
 async def invite_member(
     expense_group_id: int,
     data: InviteRequest,
+    background_tasks: BackgroundTasks,
     user_id: int = Depends(get_current_user_id),
     db: AsyncSession = Depends(get_db),
 ):
     notifications = await expense_group_service.invite(
         db, expense_group_id, user_id, data.members
     )
+    for n in notifications:
+        if n.type == NotificationType.GROUP_INVITATION and n.recipient.email:
+            background_tasks.add_task(
+                email_service.send_group_invitation_email,
+                n.recipient.email,
+                n.recipient.firstname,
+                n.recipient.username,
+                n.actor.firstname or n.actor.username if n.actor else "Someone",
+                n.expense_group_name,
+            )
     return envelope(
         [
             NotificationOut.model_validate(n).model_dump(mode="json")

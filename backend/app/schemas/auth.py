@@ -18,6 +18,15 @@ class LoginRequest(BaseModel):
     password: str | None = None
 
 
+class ForgotPasswordRequest(BaseModel):
+    email: str | None = None
+
+
+class ResetPasswordRequest(BaseModel):
+    token: str
+    new_password: str | None = None
+
+
 class TokenPair(BaseModel):
     access_token: str
     refresh_token: str

@@ -10,7 +10,7 @@ from app.services import auth_service
 
 
 async def get_all(db: AsyncSession, search_kw: str, roles: list[str]) -> list[User]:
-    stmt = select(User)
+    stmt = select(User).where(User.is_guest.is_(False))
 
     if search_kw:
         like = f"%{search_kw}%"
@@ -46,7 +46,9 @@ async def get_one(db: AsyncSession, user_id: int) -> User:
     return user
 
 
-async def create(db: AsyncSession, current_user_id: int, data: RegisterRequest) -> User:
+async def create(
+    db: AsyncSession, current_user_id: int, data: RegisterRequest
+) -> tuple[User, str]:
     if not await is_app_admin(db, current_user_id):
         raise ForbiddenError("Only app admins can create users")
 
