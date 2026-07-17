@@ -38,7 +38,7 @@ custom split ratios, invites, and a settlement view showing who owes who.
 - **Frontend** - React, TypeScript, Vite, TanStack Query, Zustand, SCSS modules
 - **Backend** - FastAPI, SQLAlchemy 2.0 (async), PostgreSQL, Alembic
 - **Auth** - JWT (access + refresh), bcrypt password hashing, email
-  verification via Resend
+  verification via SendGrid
 
 ## Project structure
 

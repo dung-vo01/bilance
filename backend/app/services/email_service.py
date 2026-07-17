@@ -1,17 +1,14 @@
 import logging
 import re
-import smtplib
-from email.mime.multipart import MIMEMultipart
-from email.mime.text import MIMEText
 
 import httpx
-from starlette.concurrency import run_in_threadpool
 
 from app.core.config import settings
 
 logger = logging.getLogger("app.email")
 
 RESEND_API_URL = "https://api.resend.com/emails"
+SENDGRID_API_URL = "https://api.sendgrid.com/v3/mail/send"
 
 
 def _parse_from_header(value: str) -> tuple[str, str]:
@@ -49,32 +46,29 @@ async def _send_resend(to: str, subject: str, html: str) -> None:
 
 
 async def _send(to: str, subject: str, html: str) -> None:
-    if not settings.SMTP_USERNAME or not settings.SMTP_PASSWORD:
+    if not settings.SENDGRID_API_KEY:
         logger.warning(
-            "SMTP_USERNAME/SMTP_PASSWORD not set; skipping email to %s (subject=%s)",
-            to,
-            subject,
+            "SENDGRID_API_KEY not set; skipping email to %s (subject=%s)", to, subject
         )
         return
 
     from_name, from_email = _parse_from_header(settings.EMAIL_FROM)
 
-    def _send_sync() -> None:
-        message = MIMEMultipart("alternative")
-        message["Subject"] = subject
-        message["From"] = f"{from_name} <{from_email}>"
-        message["To"] = to
-        message.attach(MIMEText(html, "html"))
-
-        with smtplib.SMTP(settings.SMTP_HOST, settings.SMTP_PORT, timeout=10) as server:
-            server.starttls()
-            server.login(settings.SMTP_USERNAME, settings.SMTP_PASSWORD)
-            server.sendmail(from_email, [to], message.as_string())
-
-    try:
-        await run_in_threadpool(_send_sync)
-    except (smtplib.SMTPException, OSError):
-        logger.exception("Failed to send email to %s (subject=%s)", to, subject)
+    async with httpx.AsyncClient(timeout=10.0) as client:
+        try:
+            response = await client.post(
+                SENDGRID_API_URL,
+                headers={"Authorization": f"Bearer {settings.SENDGRID_API_KEY}"},
+                json={
+                    "personalizations": [{"to": [{"email": to}]}],
+                    "from": {"email": from_email, "name": from_name},
+                    "subject": subject,
+                    "content": [{"type": "text/html", "value": html}],
+                },
+            )
+            response.raise_for_status()
+        except httpx.HTTPError:
+            logger.exception("Failed to send email to %s (subject=%s)", to, subject)
 
 
 async def send_verification_email(

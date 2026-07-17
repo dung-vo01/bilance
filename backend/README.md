@@ -11,12 +11,20 @@ pip install -r requirements.txt
 cp .env.example .env      # fill in your values
 ```
 
-Email (verification, password reset, group-invitation notices) is sent via plain **SMTP** through a real mailbox - set `SMTP_HOST`/`SMTP_PORT` for the provider, `SMTP_USERNAME`/`SMTP_PASSWORD` for the account (for Gmail, this means turning on 2-Step Verification and generating a 16-character [App Password](https://myaccount.google.com/apppasswords) - your normal
-password won't work), and `EMAIL_FROM` to that same address. Without `SMTP_USERNAME`/`SMTP_PASSWORD` set, sends are skipped with a log line instead of failing, so local dev works without any of this configured.
+Email (verification, password reset, group-invitation notices) is sent via
+[SendGrid](https://sendgrid.com), using their free **Single Sender
+Verification** - verify one email address you control (they email you a
+confirmation link, no domain or DNS setup needed), set `EMAIL_FROM` to that
+address, and you can then send to any real recipient. Without
+`SENDGRID_API_KEY` set, sends are skipped with a log line instead of
+failing, so local dev works without an account.
 
-Previous HTTP-API-based implementation is also kept in the codebase but unused, in case SMTP ever needs swapping out:
-
-- `email_service._send_resend` - [Resend](https://resend.com), which only supports full-domain verification (no single-address option), so needs owning a domain to use.
+A [Resend](https://resend.com)-based implementation
+(`email_service._send_resend`) is also kept in the codebase but unused -
+Resend only supports verifying a full domain (no single-address option), so
+switching to it means owning a domain. To re-enable it, point the public
+`send_*` functions at `_send_resend` instead of `_send` and set
+`RESEND_API_KEY`.
 
 ## Database
 
