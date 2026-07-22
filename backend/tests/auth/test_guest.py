@@ -3,7 +3,7 @@ from datetime import datetime, timedelta, timezone
 import pytest
 from sqlalchemy import select
 
-from app.models import ExpenseGroup, ExpenseGroupMember, User
+from app.models import AppRole, ExpenseGroup, ExpenseGroupMember, User
 from app.services import guest_service
 
 
@@ -82,7 +82,9 @@ async def test_cleanup_removes_expired_guests_but_not_companion_or_fresh_guest(
 
 @pytest.mark.asyncio
 async def test_get_users_excludes_guests(client, auth_headers):
-    headers, _ = await auth_headers(username="realuser", email="real@example.com")
+    headers, _ = await auth_headers(
+        username="realuser", email="real@example.com", role=AppRole.ADMIN
+    )
     await client.post("/api/auth/guest")
 
     response = await client.get("/api/users", headers=headers)

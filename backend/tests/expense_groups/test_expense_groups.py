@@ -74,6 +74,29 @@ async def test_invite_creates_notification_not_direct_member(
 
 
 @pytest.mark.asyncio
+async def test_get_group_lists_pending_invitations(client, auth_headers, create_user):
+    headers, _ = await auth_headers(username="alice", email="alice@example.com")
+    bob = await create_user(username="bob", email="bob@example.com")
+
+    create_resp = await client.post(
+        "/api/expense-groups", headers=headers, json={"name": "Trip"}
+    )
+    group_id = create_resp.json()["data"]["id"]
+
+    await client.post(
+        f"/api/expense-groups/{group_id}/invite",
+        headers=headers,
+        json={"members": [{"username": "bob", "default_split_ratio": 0.5}]},
+    )
+
+    group_resp = await client.get(f"/api/expense-groups/{group_id}", headers=headers)
+    pending = group_resp.json()["data"]["pending_invitations"]
+    assert len(pending) == 1
+    assert pending[0]["username"] == "bob"
+    assert bob.id  # keep reference
+
+
+@pytest.mark.asyncio
 async def test_invite_duplicate_member_skipped(client, auth_headers, create_user):
     headers, _ = await auth_headers(username="alice", email="alice@example.com")
     await create_user(username="bob", email="bob@example.com")

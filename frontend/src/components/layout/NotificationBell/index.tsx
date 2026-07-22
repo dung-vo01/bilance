@@ -5,6 +5,7 @@ import styles from "./NotificationBell.module.scss";
 import {
   useMarkNotificationRead,
   useNotifications,
+  useRespondToContactRequest,
   useRespondToInvitation,
 } from "@/hooks/queries";
 import type { Notification, NotificationPersonRef } from "@/types";
@@ -34,6 +35,8 @@ export const NotificationBell = () => {
   const { data: notifications = [] } = useNotifications();
   const { mutate: markRead } = useMarkNotificationRead();
   const { mutate: respond, isPending: isResponding } = useRespondToInvitation();
+  const { mutate: respondContact, isPending: isRespondingContact } =
+    useRespondToContactRequest();
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -76,10 +79,20 @@ export const NotificationBell = () => {
 
   const renderItem = (n: Notification) => {
     const groupName = n.expense_group_name ?? `Group #${n.expense_group_id}`;
-    const isPendingInvite =
+    const isPendingGroupInvite =
       n.type === "group_invitation" && n.resolved_at === null;
+    const isPendingContactRequest =
+      n.type === "contact_request" && n.resolved_at === null;
 
-    if (isPendingInvite) {
+    if (isPendingGroupInvite || isPendingContactRequest) {
+      const onAccept = isPendingGroupInvite
+        ? () => respond({ id: n.id, accept: true })
+        : () => respondContact({ id: n.id, accept: true });
+      const onDecline = isPendingGroupInvite
+        ? () => respond({ id: n.id, accept: false })
+        : () => respondContact({ id: n.id, accept: false });
+      const busy = isPendingGroupInvite ? isResponding : isRespondingContact;
+
       return (
         <div key={n.id} className={styles.item}>
           <div className={styles.itemAvatar}>
@@ -87,8 +100,17 @@ export const NotificationBell = () => {
           </div>
           <div className={styles.itemBody}>
             <p className={styles.itemText}>
-              <strong>{getDisplayName(n.actor)}</strong> invited you to{" "}
-              <strong>{groupName}</strong>
+              {isPendingGroupInvite ? (
+                <>
+                  <strong>{getDisplayName(n.actor)}</strong> invited you to{" "}
+                  <strong>{groupName}</strong>
+                </>
+              ) : (
+                <>
+                  <strong>{getDisplayName(n.actor)}</strong> wants to connect
+                  with you
+                </>
+              )}
             </p>
             <span className={styles.itemTime}>
               {formatTimestamp(n.created_at)}
@@ -97,16 +119,16 @@ export const NotificationBell = () => {
               <button
                 type="button"
                 className={styles.acceptBtn}
-                disabled={isResponding}
-                onClick={() => respond({ id: n.id, accept: true })}
+                disabled={busy}
+                onClick={onAccept}
               >
                 Accept
               </button>
               <button
                 type="button"
                 className={styles.declineBtn}
-                disabled={isResponding}
-                onClick={() => respond({ id: n.id, accept: false })}
+                disabled={busy}
+                onClick={onDecline}
               >
                 Decline
               </button>
@@ -129,7 +151,11 @@ export const NotificationBell = () => {
               ? `${getDisplayName(n.actor)} left ${groupName}.`
               : n.type === "members_invited"
                 ? `${getDisplayName(n.actor)} invited ${(n.payload?.invited_users ?? []).map(getDisplayName).join(", ") || "someone"} to ${groupName}.`
-                : `${getDisplayName(n.actor)} sent a notification.`;
+                : n.type === "contact_accepted"
+                  ? `${getDisplayName(n.actor)} accepted your contact request.`
+                  : n.type === "contact_declined"
+                    ? `${getDisplayName(n.actor)} declined your contact request.`
+                    : `${getDisplayName(n.actor)} sent a notification.`;
 
     return (
       <div key={n.id} className={styles.item}>

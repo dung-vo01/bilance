@@ -46,3 +46,24 @@ async def respond_invitation(
     return envelope(
         {"message": "Invitation accepted" if data.accept else "Invitation declined"}
     )
+
+
+@router.post("/contacts/{notification_id}/respond")
+async def respond_contact_request(
+    notification_id: int,
+    data: RespondInvitationRequest,
+    user_id: int = Depends(get_current_user_id),
+    db: AsyncSession = Depends(get_db),
+):
+    await notification_service.respond_contact_request(
+        db, notification_id, user_id, data.accept
+    )
+    return envelope(
+        {
+            "message": (
+                "Contact request accepted"
+                if data.accept
+                else "Contact request declined"
+            )
+        }
+    )

@@ -147,4 +147,7 @@ async def refresh(user_id: int = Depends(get_refresh_user_id)):
 
 @router.get("/me")
 async def me(user: User = Depends(get_current_user)):
+    from app.core.config import settings
+
+    print(settings.FRONTEND_URL)
     return envelope(UserOut.model_validate(user).model_dump(mode="json"))

@@ -18,6 +18,7 @@ export interface ExpenseGroup {
   description: string | null;
   created_by_id: number;
   members: ExpenseGroupMember[];
+  pending_invitations: NotificationActor[];
 }
 
 export interface ExpenseGroupMember {
@@ -92,7 +93,10 @@ export type NotificationType =
   | "invitation_declined"
   | "member_removed"
   | "member_left"
-  | "members_invited";
+  | "members_invited"
+  | "contact_request"
+  | "contact_accepted"
+  | "contact_declined";
 
 // Mirrors backend UserPublicOut (no email)
 export interface NotificationActor {
@@ -105,6 +109,9 @@ export interface NotificationActor {
   phone_number: string | null;
   created_at: string;
 }
+
+// Shape returned by GET /api/contacts - same as UserPublicOut, no email
+export type ContactUser = NotificationActor;
 
 // A lighter reference to a person embedded in a notification's payload
 // (e.g. someone who was removed or invited) — just enough to display a name.

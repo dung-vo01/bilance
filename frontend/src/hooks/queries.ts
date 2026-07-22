@@ -11,6 +11,7 @@ import {
   expensesApi,
   categoriesApi,
   notificationsApi,
+  contactsApi,
 } from "@/api";
 import {
   Category,
@@ -41,6 +42,7 @@ export const queryKeys = {
   categoryBreakdown: (days: number, expenseGroupId?: number) =>
     ["expenses", "category-breakdown", days, expenseGroupId] as const,
   notifications: ["notifications"] as const,
+  contacts: ["contacts"] as const,
 };
 
 //helpers
@@ -585,6 +587,37 @@ export const useRespondToInvitation = () => {
         qc.invalidateQueries({ queryKey: queryKeys.expense_groups });
       }
 
+      qc.setQueryData(
+        queryKeys.notifications,
+        (old: Notification[] | undefined) => old?.filter((n) => n.id !== id),
+      );
+    },
+  });
+};
+
+//--------------------------------------------------------------------------------
+// Contacts
+//--------------------------------------------------------------------------------
+export const useContacts = () =>
+  useQuery({
+    queryKey: queryKeys.contacts,
+    queryFn: () => contactsApi.getAll().then((r) => r.data.data),
+  });
+
+export const useSendContactRequest = () =>
+  useMutation({
+    mutationFn: (username: string) => contactsApi.sendRequest(username),
+  });
+
+export const useRespondToContactRequest = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, accept }: { id: number; accept: boolean }) =>
+      notificationsApi.respondContactRequest(id, accept),
+    onSuccess: (_, { id, accept }) => {
+      if (accept) {
+        qc.invalidateQueries({ queryKey: queryKeys.contacts });
+      }
       qc.setQueryData(
         queryKeys.notifications,
         (old: Notification[] | undefined) => old?.filter((n) => n.id !== id),

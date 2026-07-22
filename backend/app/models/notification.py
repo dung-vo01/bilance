@@ -20,6 +20,9 @@ class NotificationType(str, enum.Enum):
     MEMBER_REMOVED = "member_removed"
     MEMBER_LEFT = "member_left"
     MEMBERS_INVITED = "members_invited"
+    CONTACT_REQUEST = "contact_request"
+    CONTACT_ACCEPTED = "contact_accepted"
+    CONTACT_DECLINED = "contact_declined"
 
 
 class Notification(Base, TimestampMixin):

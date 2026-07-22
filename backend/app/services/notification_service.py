@@ -6,7 +6,13 @@ from sqlalchemy.orm import selectinload
 
 from app.core.authz import get_group_admin_ids, is_group_member
 from app.core.exceptions import AppError, ForbiddenError, NotFoundError
-from app.models import ExpenseGroupMember, GroupRole, Notification, NotificationType
+from app.models import (
+    Contact,
+    ExpenseGroupMember,
+    GroupRole,
+    Notification,
+    NotificationType,
+)
 
 _LOADER = (selectinload(Notification.actor), selectinload(Notification.expense_group))
 
@@ -105,6 +111,46 @@ async def respond_invitation(
                 recipient_id=admin_id,
                 actor_id=user_id,
                 expense_group_id=notification.expense_group_id,
+            )
+        )
+
+    await db.commit()
+
+    return await _reload(db, notification_id)
+
+
+async def respond_contact_request(
+    db: AsyncSession, notification_id: int, user_id: int, accept: bool
+) -> Notification:
+    notification = await _get_owned(db, notification_id, user_id)
+
+    if notification.type != NotificationType.CONTACT_REQUEST:
+        raise AppError("Not a contact request")
+
+    if notification.resolved_at is not None:
+        raise AppError("Contact request already resolved")
+
+    requester_id = notification.actor_id
+
+    if accept and requester_id is not None:
+        db.add(Contact(user_id=user_id, contact_id=requester_id))
+        db.add(Contact(user_id=requester_id, contact_id=user_id))
+
+    now = datetime.now(timezone.utc)
+    notification.resolved_at = now
+    notification.is_read = True
+    notification.read_at = now
+
+    if requester_id is not None:
+        db.add(
+            Notification(
+                type=(
+                    NotificationType.CONTACT_ACCEPTED
+                    if accept
+                    else NotificationType.CONTACT_DECLINED
+                ),
+                recipient_id=requester_id,
+                actor_id=user_id,
             )
         )
 

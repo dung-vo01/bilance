@@ -1,8 +1,12 @@
 import { Icon } from "@iconify/react";
 import styles from "./InviteMemberModal.module.scss";
 import { SearchSelect } from "@/components/ui/SearchSelect";
-import type { ExpenseGroup, User } from "@/types";
-import { useInviteMembers, useUsers } from "@/hooks/queries";
+import type { ContactUser, ExpenseGroup } from "@/types";
+import {
+  useContacts,
+  useInviteMembers,
+  useSendContactRequest,
+} from "@/hooks/queries";
 import { useState } from "react";
 
 type InviteEntry = {
@@ -16,25 +20,53 @@ const InviteMemberModal = ({ expense_group, onClose }: Props) => {
   const { mutate: inviteMembers, isPending } = useInviteMembers(
     expense_group.id,
   );
-  const { data: users = [] } = useUsers();
+  const { data: users = [] } = useContacts();
 
   const [invites, setInvites] = useState<InviteEntry[]>([]);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
 
+  const [showAddContact, setShowAddContact] = useState(false);
+  const [contactUsername, setContactUsername] = useState("");
+  const [contactError, setContactError] = useState("");
+  const [contactSent, setContactSent] = useState(false);
+  const { mutate: sendContactRequest, isPending: isSendingRequest } =
+    useSendContactRequest();
+
   const existingUserIds = new Set(expense_group.members.map((m) => m.user_id));
   const invitedUsernames = new Set(invites.map((i) => i.username));
-
-  const availableUsers = users.filter(
-    (u) => !existingUserIds.has(u.id) && !invitedUsernames.has(u.username),
+  const pendingUsernames = new Set(
+    expense_group.pending_invitations.map((p) => p.username),
   );
 
-  const getUserOptionLabel = (user: User) => {
+  const availableUsers = users.filter(
+    (u) =>
+      !existingUserIds.has(u.id) &&
+      !invitedUsernames.has(u.username) &&
+      !pendingUsernames.has(u.username),
+  );
+
+  const getUserOptionLabel = (user: ContactUser) => {
     let text = user.username;
     if (user.firstname || user.lastname) {
       text += ` (${[user.firstname, user.lastname].filter(Boolean).join(" ")})`;
     }
     return text;
+  };
+
+  const handleSendContactRequest = (e: React.FormEvent) => {
+    e.preventDefault();
+    setContactError("");
+    sendContactRequest(contactUsername, {
+      onSuccess: () => {
+        setContactSent(true);
+        setContactUsername("");
+      },
+      onError: () =>
+        setContactError(
+          "Couldn't send that request — check the username and try again.",
+        ),
+    });
   };
 
   // default_split_ratio is a decimal float (0.5 = 50%)
@@ -167,6 +199,26 @@ const InviteMemberModal = ({ expense_group, onClose }: Props) => {
               ))}
             </div>
 
+            {/* Already-invited, unresolved - display only */}
+            {expense_group.pending_invitations.length > 0 && (
+              <div className={styles.existingList}>
+                <p className={styles.existingTitle}>Pending invitations</p>
+                {expense_group.pending_invitations.map((p) => (
+                  <div key={p.id} className={styles.existingRow}>
+                    <div className={styles.inviteAvatar}>
+                      {p.username[0]?.toUpperCase()}
+                    </div>
+                    <span className={styles.existingName}>
+                      {p.firstname || p.lastname
+                        ? `${p.firstname ?? ""} ${p.lastname ?? ""}`.trim()
+                        : p.username}
+                    </span>
+                    <span className={styles.pendingBadge}>Invited</span>
+                  </div>
+                ))}
+              </div>
+            )}
+
             {/* Remaining pool + status */}
             <div className={styles.ratioBar}>
               <div className={styles.ratioBarLeft}>
@@ -211,6 +263,59 @@ const InviteMemberModal = ({ expense_group, onClose }: Props) => {
                 />
               </div>
             )}
+
+            {/* Only contacts (and shared-group members) are invitable - this
+                is how you connect with someone new before you can invite them */}
+            <div className={styles.addContactSection}>
+              <button
+                type="button"
+                className={styles.addContactToggle}
+                onClick={() => setShowAddContact((v) => !v)}
+              >
+                <Icon
+                  icon={showAddContact ? "ph:caret-down" : "ph:caret-right"}
+                  width={14}
+                  height={14}
+                />
+                Can't find them? Send a contact request
+              </button>
+
+              {showAddContact && (
+                <div className={styles.addContactForm}>
+                  {contactError && (
+                    <div className={styles.error}>
+                      <Icon icon="ph:warning-circle" width={16} height={16} />
+                      {contactError}
+                    </div>
+                  )}
+                  {contactSent ? (
+                    <div className={styles.success}>
+                      <Icon icon="ph:check-circle" width={16} height={16} />
+                      Request sent — once they accept, you can invite them.
+                    </div>
+                  ) : (
+                    <div className={styles.addContactRow}>
+                      <input
+                        type="text"
+                        className={styles.addContactInput}
+                        value={contactUsername}
+                        onChange={(e) => setContactUsername(e.target.value)}
+                        placeholder="Their exact username"
+                      />
+                      <button
+                        type="button"
+                        className={styles.sendRequestBtn}
+                        onClick={handleSendContactRequest}
+                        disabled={isSendingRequest || !contactUsername}
+                      >
+                        {isSendingRequest ? "Sending..." : "Send request"}
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
             {/* New invites */}
             {invites.length > 0 && (
               <div className={styles.inviteList}>

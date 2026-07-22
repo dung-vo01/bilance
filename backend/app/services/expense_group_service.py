@@ -123,6 +123,19 @@ async def get(db: AsyncSession, expense_group_id: int, user_id: int) -> ExpenseG
     ):
         raise ForbiddenError("Not a member of this group")
 
+    pending_result = await db.execute(
+        select(Notification)
+        .where(
+            Notification.type == NotificationType.GROUP_INVITATION,
+            Notification.expense_group_id == expense_group_id,
+            Notification.resolved_at.is_(None),
+        )
+        .options(selectinload(Notification.recipient))
+    )
+    group.pending_invitations = [
+        n.recipient for n in pending_result.scalars().all() if n.recipient
+    ]
+
     return group
 
 

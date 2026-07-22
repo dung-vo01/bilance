@@ -1,7 +1,9 @@
 from fastapi import APIRouter, BackgroundTasks, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.authz import is_app_admin
 from app.core.deps import get_current_user_id
+from app.core.exceptions import ForbiddenError
 from app.db.session import get_db
 from app.schemas.auth import RegisterRequest
 from app.schemas.common import envelope
@@ -15,8 +17,12 @@ router = APIRouter()
 async def get_users(
     search_kw: str = Query(""),
     roles: str = Query(""),
+    current_user_id: int = Depends(get_current_user_id),
     db: AsyncSession = Depends(get_db),
 ):
+    if not await is_app_admin(db, current_user_id):
+        raise ForbiddenError("Only app admins can search the user directory")
+
     role_list = [r for r in roles.split(",") if r]
     users = await user_service.get_all(db, search_kw, role_list)
     return envelope([UserOut.model_validate(u).model_dump(mode="json") for u in users])

@@ -19,6 +19,7 @@ import type {
   ExpenseListParams,
   PaginatedExpenses,
   CategoryBreakdown,
+  ContactUser,
 } from "@/types";
 
 //--------------------------------------------------------------------------------
@@ -83,6 +84,18 @@ export const usersApi = {
     api.patch<{ data: User }>(`/users/${id}`, data),
 
   delete: (id: number) => api.delete(`/users/${id}`),
+};
+
+//--------------------------------------------------------------------------------
+// Contacts
+//--------------------------------------------------------------------------------
+export const contactsApi = {
+  getAll: () => api.get<{ data: ContactUser[] }>("/contacts"),
+
+  sendRequest: (username: string) =>
+    api.post<{ data: { message: string } }>("/contacts/requests", {
+      username,
+    }),
 };
 
 //--------------------------------------------------------------------------------
@@ -192,6 +205,12 @@ export const notificationsApi = {
   respondInvitation: (id: number, accept: boolean) =>
     api.post<{ data: { message: string } }>(
       `/notifications/invitations/${id}/respond`,
+      { accept },
+    ),
+
+  respondContactRequest: (id: number, accept: boolean) =>
+    api.post<{ data: { message: string } }>(
+      `/notifications/contacts/${id}/respond`,
       { accept },
     ),
 };

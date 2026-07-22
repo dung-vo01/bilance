@@ -19,6 +19,22 @@ async def test_only_admin_can_create_user(client, auth_headers):
 
 
 @pytest.mark.asyncio
+async def test_only_admin_can_list_users(client, auth_headers):
+    headers, _ = await auth_headers(username="alice", email="alice@example.com")
+    response = await client.get("/api/users", headers=headers)
+    assert response.status_code == 403
+
+
+@pytest.mark.asyncio
+async def test_admin_can_list_users(client, auth_headers):
+    headers, _ = await auth_headers(
+        username="admin", email="admin@example.com", role=AppRole.ADMIN
+    )
+    response = await client.get("/api/users", headers=headers)
+    assert response.status_code == 200
+
+
+@pytest.mark.asyncio
 async def test_admin_can_create_user(client, auth_headers):
     headers, _ = await auth_headers(
         username="admin", email="admin@example.com", role=AppRole.ADMIN

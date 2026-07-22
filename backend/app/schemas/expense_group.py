@@ -23,6 +23,7 @@ class ExpenseGroupOut(BaseModel):
     description: str | None = None
     created_by_id: int | None = None
     members: list[MemberOut] = []
+    pending_invitations: list[UserPublicOut] = []
     created_at: datetime
     updated_at: datetime
 
