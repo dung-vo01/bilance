@@ -113,6 +113,22 @@ export interface NotificationActor {
 // Shape returned by GET /api/contacts - same as UserPublicOut, no email
 export type ContactUser = NotificationActor;
 
+export interface SharedGroupRef {
+  id: number;
+  name: string | null;
+}
+
+export interface ContactDetail {
+  id: number;
+  username: string;
+  firstname: string | null;
+  lastname: string | null;
+  email: string | null;
+  phone_number: string | null;
+  created_at: string;
+  shared_groups: SharedGroupRef[];
+}
+
 // A lighter reference to a person embedded in a notification's payload
 // (e.g. someone who was removed or invited) — just enough to display a name.
 export interface NotificationPersonRef {
@@ -135,6 +151,7 @@ export interface Notification {
   recipient_id: number;
   actor_id: number | null;
   actor: NotificationActor | null;
+  recipient?: NotificationActor | null;
   expense_group_id: number | null;
   payload: NotificationPayload | null;
   is_read: boolean;

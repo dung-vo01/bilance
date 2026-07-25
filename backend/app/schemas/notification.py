@@ -13,6 +13,7 @@ class NotificationOut(BaseModel):
     recipient_id: int
     actor_id: int | None = None
     actor: UserPublicOut | None = None
+    recipient: UserPublicOut | None = None
     expense_group_id: int | None = None
     payload: dict | None = None
     is_read: bool

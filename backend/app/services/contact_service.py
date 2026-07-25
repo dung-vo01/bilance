@@ -2,8 +2,15 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import aliased, selectinload
 
-from app.core.exceptions import AppError, ConflictError, NotFoundError
-from app.models import Contact, ExpenseGroupMember, Notification, NotificationType, User
+from app.core.exceptions import AppError, ConflictError, ForbiddenError, NotFoundError
+from app.models import (
+    Contact,
+    ExpenseGroup,
+    ExpenseGroupMember,
+    Notification,
+    NotificationType,
+    User,
+)
 
 
 async def send_request(
@@ -56,7 +63,7 @@ async def send_request(
     result = await db.execute(
         select(Notification)
         .where(Notification.id == notification.id)
-        .options(selectinload(Notification.actor))
+        .options(selectinload(Notification.actor), selectinload(Notification.recipient))
     )
     return result.scalar_one()
 
@@ -76,3 +83,78 @@ async def get_visible_contacts(db: AsyncSession, user_id: int) -> list[User]:
 
     result = await db.execute(select(User).where(User.id.in_(select(visible_ids))))
     return list(result.scalars().all())
+
+
+async def list_my_contacts_detailed(db: AsyncSession, user_id: int) -> list[User]:
+    contact_ids_result = await db.execute(
+        select(Contact.contact_id).where(Contact.user_id == user_id)
+    )
+    contact_ids = list(contact_ids_result.scalars().all())
+    if not contact_ids:
+        return []
+
+    users_result = await db.execute(select(User).where(User.id.in_(contact_ids)))
+    users = list(users_result.scalars().all())
+
+    m1 = aliased(ExpenseGroupMember)
+    m2 = aliased(ExpenseGroupMember)
+    shared_result = await db.execute(
+        select(m2.user_id, ExpenseGroup.id, ExpenseGroup.name)
+        .select_from(m1)
+        .join(m2, m1.expense_group_id == m2.expense_group_id)
+        .join(ExpenseGroup, ExpenseGroup.id == m1.expense_group_id)
+        .where(m1.user_id == user_id, m2.user_id.in_(contact_ids))
+    )
+    groups_by_contact: dict[int, list[dict]] = {}
+    for other_id, group_id, group_name in shared_result.all():
+        groups_by_contact.setdefault(other_id, []).append(
+            {"id": group_id, "name": group_name}
+        )
+
+    for u in users:
+        u.shared_groups = groups_by_contact.get(u.id, [])
+
+    return users
+
+
+async def get_sent_requests(db: AsyncSession, user_id: int) -> list[Notification]:
+    result = await db.execute(
+        select(Notification)
+        .where(
+            Notification.type == NotificationType.CONTACT_REQUEST,
+            Notification.actor_id == user_id,
+            Notification.resolved_at.is_(None),
+        )
+        .options(selectinload(Notification.recipient))
+        .order_by(Notification.created_at.desc())
+    )
+    return list(result.scalars().all())
+
+
+async def cancel_request(db: AsyncSession, user_id: int, notification_id: int) -> None:
+    notification = await db.get(Notification, notification_id)
+    if not notification or notification.type != NotificationType.CONTACT_REQUEST:
+        raise NotFoundError("Request not found")
+    if notification.actor_id != user_id:
+        raise ForbiddenError("Not your request")
+    if notification.resolved_at is not None:
+        raise AppError("Request already resolved")
+
+    await db.delete(notification)
+    await db.commit()
+
+
+async def remove_contact(db: AsyncSession, user_id: int, contact_user_id: int) -> None:
+    result = await db.execute(
+        select(Contact).where(
+            ((Contact.user_id == user_id) & (Contact.contact_id == contact_user_id))
+            | ((Contact.user_id == contact_user_id) & (Contact.contact_id == user_id))
+        )
+    )
+    rows = result.scalars().all()
+    if not rows:
+        raise NotFoundError("Not a contact")
+
+    for row in rows:
+        await db.delete(row)
+    await db.commit()

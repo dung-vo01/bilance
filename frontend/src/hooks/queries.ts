@@ -43,6 +43,8 @@ export const queryKeys = {
     ["expenses", "category-breakdown", days, expenseGroupId] as const,
   notifications: ["notifications"] as const,
   contacts: ["contacts"] as const,
+  contactsDetail: ["contacts", "detail"] as const,
+  sentContactRequests: ["contacts", "requests", "sent"] as const,
 };
 
 //helpers
@@ -604,10 +606,49 @@ export const useContacts = () =>
     queryFn: () => contactsApi.getAll().then((r) => r.data.data),
   });
 
-export const useSendContactRequest = () =>
-  useMutation({
-    mutationFn: (username: string) => contactsApi.sendRequest(username),
+export const useContactsDetail = () =>
+  useQuery({
+    queryKey: queryKeys.contactsDetail,
+    queryFn: () => contactsApi.getDetail().then((r) => r.data.data),
   });
+
+export const useSentContactRequests = () =>
+  useQuery({
+    queryKey: queryKeys.sentContactRequests,
+    queryFn: () => contactsApi.getSentRequests().then((r) => r.data.data),
+  });
+
+export const useSendContactRequest = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (username: string) => contactsApi.sendRequest(username),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: queryKeys.sentContactRequests });
+    },
+  });
+};
+
+export const useCancelContactRequest = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (notificationId: number) =>
+      contactsApi.cancelRequest(notificationId),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: queryKeys.sentContactRequests });
+    },
+  });
+};
+
+export const useRemoveContact = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (userId: number) => contactsApi.remove(userId),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: queryKeys.contactsDetail });
+      qc.invalidateQueries({ queryKey: queryKeys.contacts });
+    },
+  });
+};
 
 export const useRespondToContactRequest = () => {
   const qc = useQueryClient();

@@ -33,6 +33,24 @@ class UserPublicOut(BaseModel):
     created_at: datetime
 
 
+class SharedGroupRef(BaseModel):
+    id: int
+    name: str | None = None
+
+
+class ContactDetailOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    username: str
+    firstname: str | None = None
+    lastname: str | None = None
+    email: str | None = None
+    phone_number: str | None = None
+    created_at: datetime
+    shared_groups: list[SharedGroupRef] = []
+
+
 class UserCreate(BaseModel):
     username: str
     email: str

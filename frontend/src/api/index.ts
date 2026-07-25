@@ -20,6 +20,7 @@ import type {
   PaginatedExpenses,
   CategoryBreakdown,
   ContactUser,
+  ContactDetail,
 } from "@/types";
 
 //--------------------------------------------------------------------------------
@@ -92,10 +93,23 @@ export const usersApi = {
 export const contactsApi = {
   getAll: () => api.get<{ data: ContactUser[] }>("/contacts"),
 
+  getDetail: () => api.get<{ data: ContactDetail[] }>("/contacts/detail"),
+
+  getSentRequests: () =>
+    api.get<{ data: Notification[] }>("/contacts/requests/sent"),
+
   sendRequest: (username: string) =>
     api.post<{ data: { message: string } }>("/contacts/requests", {
       username,
     }),
+
+  cancelRequest: (notificationId: number) =>
+    api.delete<{ data: { message: string } }>(
+      `/contacts/requests/${notificationId}`,
+    ),
+
+  remove: (userId: number) =>
+    api.delete<{ data: { message: string } }>(`/contacts/${userId}`),
 };
 
 //--------------------------------------------------------------------------------

@@ -115,3 +115,19 @@ async def send_group_invitation_email(
       <p>Log in to accept or decline: <a href="{settings.FRONTEND_URL}/dashboard">{settings.FRONTEND_URL}</a></p>
     """
     await _send(to, f'You\'ve been invited to "{group_name}" on Bilance', html)
+
+
+async def send_contact_request_email(
+    to: str,
+    recipient_firstname: str | None,
+    recipient_username: str,
+    requester_name: str,
+) -> None:
+    greeting_name = recipient_firstname or recipient_username
+    link = f"{settings.FRONTEND_URL}/contacts"
+    html = f"""
+      <p>Hi {greeting_name},</p>
+      <p>{requester_name} sent you a friend request on Bilance.</p>
+      <p>Log in to accept or decline: <a href="{link}">{link}</a></p>
+    """
+    await _send(to, f"{requester_name} sent you a friend request on Bilance", html)

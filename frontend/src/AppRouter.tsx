@@ -16,6 +16,7 @@ import { ExpenseGroupsPage } from "@/pages/expenseGroups/ExpenseGroupsPage";
 import { ExpenseGroupDetailPage } from "@/pages/expenseGroups/ExpenseGroupDetailPage";
 import { ProfilePage } from "@/pages/profile/ProfilePage";
 import { UsersPage } from "@/pages/users/UsersPage";
+import { ContactsPage } from "@/pages/contacts/ContactsPage";
 
 export const AppRouter = () => {
   const navigate = useNavigate();
@@ -42,6 +43,7 @@ export const AppRouter = () => {
             path="/expense_groups/:id"
             element={<ExpenseGroupDetailPage />}
           />
+          <Route path="/contacts" element={<ContactsPage />} />
           <Route path="/profile" element={<ProfilePage />} />
           <Route path="/users" element={<UsersPage />} />
         </Route>

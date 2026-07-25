@@ -57,6 +57,7 @@ export const AppLayout = () => {
     { to: "/dashboard", label: "Dashboard", icon: "ph:house" },
     { to: "/expenses", label: "Expenses", icon: "ph:receipt" },
     { to: "/expense_groups", label: "Groups", icon: "ph:users-three" },
+    { to: "/contacts", label: "Friends", icon: "ph:address-book" },
     { to: "/profile", label: "Profile", icon: "ph:user" },
     ...(user?.role === "admin"
       ? [{ to: "/users", label: "Users", icon: "ph:users" }]
