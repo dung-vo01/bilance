@@ -30,8 +30,14 @@ custom split ratios, invites, and a settlement view showing who owes who.
 - Per-expense split ratios, independent of a group's default ratio
 - Settlement view - who owes who, and by how much
 - Global and per-group expense categories
-- Notifications for invitations and membership changes, with email
-  notifications for group invitations
+- Contacts/friends system - send, accept, or decline friend requests; only
+  contacts (or people you already share a group with) can be invited to a
+  group. A dedicated Friends page lists your contacts (with each other's
+  email/phone visible, and a jump link to any shared groups), plus incoming
+  and outgoing pending requests with cancel/unfriend controls
+- Notifications for invitations, membership changes, and friend requests,
+  with email notifications for group invitations and incoming friend
+  requests
 
 ## Tech stack
 
