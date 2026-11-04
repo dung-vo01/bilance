@@ -7,6 +7,8 @@ class MemberBalance(BaseModel):
     paid: float
     should_pay: float
     balance: float
+    sent: float
+    received: float
 
 
 class Transaction(BaseModel):
@@ -31,3 +33,4 @@ class SettlementOut(BaseModel):
     pending_total: float
     settled_total: float
     total: float
+    imbalance: float

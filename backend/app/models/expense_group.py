@@ -9,6 +9,7 @@ from app.db.base import Base
 from app.models.mixins import TimestampMixin, utcnow
 
 if TYPE_CHECKING:
+    from app.models.repayment import Repayment
     from app.models.user import User
 
 
@@ -30,6 +31,10 @@ class ExpenseGroup(Base, TimestampMixin):
     updated_by: Mapped["User | None"] = relationship(foreign_keys=[updated_by_id])
 
     members: Mapped[list["ExpenseGroupMember"]] = relationship(
+        back_populates="expense_group", cascade="all, delete-orphan"
+    )
+
+    repayments: Mapped[list["Repayment"]] = relationship(
         back_populates="expense_group", cascade="all, delete-orphan"
     )
 

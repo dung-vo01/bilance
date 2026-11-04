@@ -3,6 +3,7 @@ from app.models.contact import Contact
 from app.models.expense import Expense, ExpenseShare
 from app.models.expense_group import ExpenseGroup, ExpenseGroupMember, GroupRole
 from app.models.notification import Notification, NotificationType
+from app.models.repayment import Repayment
 from app.models.user import AppRole, User
 
 __all__ = [
@@ -16,5 +17,6 @@ __all__ = [
     "GroupRole",
     "Notification",
     "NotificationType",
+    "Repayment",
     "User",
 ]

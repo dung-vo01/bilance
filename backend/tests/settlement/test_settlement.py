@@ -1,38 +1,93 @@
 import pytest
 
+from app.models.repayment import Repayment
+
+
+# TEMP: to add repayment between members (will replace with actual API soon)
+async def _add_repayment(
+    db_session,
+    expense_group_id,
+    from_user_id,
+    to_user_id,
+    amount,
+    created_by_id,
+    is_deleted=False,
+):
+    repayment = Repayment(
+        amount=amount,
+        is_deleted=is_deleted,
+        created_by_id=created_by_id,
+        from_user_id=from_user_id,
+        to_user_id=to_user_id,
+        expense_group_id=expense_group_id,
+    )
+    db_session.add(repayment)
+    await db_session.commit()
+    await db_session.refresh(repayment)
+
+    return repayment
+
+
+async def _set_up_group_with_expense(client, headers, group_name, members, expenses):
+    group_resp = await client.post(
+        "/api/expense-groups",
+        headers=headers,
+        json={
+            "name": group_name,
+            "members": members,
+        },
+    )
+    assert group_resp.status_code == 201, group_resp.text
+
+    group_id = group_resp.json()["data"]["id"]
+
+    for expense_payload in expenses:
+        resp = await client.post(
+            "/api/expenses",
+            headers=headers,
+            json={
+                **expense_payload,
+                "expense_group_id": group_id,
+            },
+        )
+        assert resp.status_code == 201, resp.text
+
+    return group_id
+
+
+async def _get_settlement(client, headers, group_id):
+    resp = await client.get(
+        f"/api/expense-groups/{group_id}/settlement", headers=headers
+    )
+    assert resp.status_code == 200, resp.text
+
+    data = resp.json()["data"]
+
+    return data, {m["user_id"]: m for m in data["members"]}
+
 
 @pytest.mark.asyncio
 async def test_settlement_balances_paid_minus_owed(client, auth_headers, create_user):
     headers, user = await auth_headers(username="alice", email="alice@example.com")
     bob = await create_user(username="bob", email="bob@example.com")
 
-    group_resp = await client.post(
-        "/api/expense-groups",
-        headers=headers,
-        json={"name": "Trip", "members": [{"id": bob.id, "role": "member"}]},
-    )
-    group_id = group_resp.json()["data"]["id"]
-
-    await client.post(
-        "/api/expenses",
-        headers=headers,
-        json={
+    members = [{"id": bob.id, "role": "member"}]
+    expenses = [
+        {
             "name": "Dinner",
             "value": 100,
-            "expense_group_id": group_id,
             "shares": [
                 {"user_id": user.id, "ratio": 0.6},
                 {"user_id": bob.id, "ratio": 0.4},
             ],
-        },
+        }
+    ]
+    group_id = await _set_up_group_with_expense(
+        client, headers, group_name="Trip", members=members, expenses=expenses
     )
 
-    response = await client.get(
-        f"/api/expense-groups/{group_id}/settlement", headers=headers
-    )
-    assert response.status_code == 200
-    data = response.json()["data"]
-    balances = {m["user_id"]: m for m in data["members"]}
+    _, balances = await _get_settlement(client, headers, group_id)
+
     assert balances[user.id]["balance"] == pytest.approx(40.0)
     assert balances[bob.id]["balance"] == pytest.approx(-40.0)
 
@@ -45,38 +100,24 @@ async def test_settlement_debt_simplification_transactions(
     bob = await create_user(username="bob", email="bob@example.com")
     carol = await create_user(username="carol", email="carol@example.com")
 
-    group_resp = await client.post(
-        "/api/expense-groups",
-        headers=headers,
-        json={
-            "name": "Trip",
-            "members": [
-                {"id": bob.id, "role": "member"},
-                {"id": carol.id, "role": "member"},
-            ],
-        },
-    )
-    group_id = group_resp.json()["data"]["id"]
-
-    await client.post(
-        "/api/expenses",
-        headers=headers,
-        json={
+    members = [{"id": bob.id, "role": "member"}, {"id": carol.id, "role": "member"}]
+    expenses = [
+        {
             "name": "Hotel",
             "value": 90,
-            "expense_group_id": group_id,
             "shares": [
                 {"user_id": user.id, "ratio": 1 / 3},
                 {"user_id": bob.id, "ratio": 1 / 3},
                 {"user_id": carol.id, "ratio": 1 / 3},
             ],
-        },
+        }
+    ]
+    group_id = await _set_up_group_with_expense(
+        client, headers, group_name="Trip", members=members, expenses=expenses
     )
 
-    response = await client.get(
-        f"/api/expense-groups/{group_id}/settlement", headers=headers
-    )
-    data = response.json()["data"]
+    data, _ = await _get_settlement(client, headers, group_id)
+
     total_transacted = sum(t["amount"] for t in data["transactions"])
     assert total_transacted == pytest.approx(60.0)
     for txn in data["transactions"]:
@@ -90,25 +131,19 @@ async def test_settlement_former_member_shares_still_counted(
     headers, user = await auth_headers(username="alice", email="alice@example.com")
     bob = await create_user(username="bob", email="bob@example.com")
 
-    group_resp = await client.post(
-        "/api/expense-groups",
-        headers=headers,
-        json={"name": "Trip", "members": [{"id": bob.id, "role": "member"}]},
-    )
-    group_id = group_resp.json()["data"]["id"]
-
-    await client.post(
-        "/api/expenses",
-        headers=headers,
-        json={
+    members = [{"id": bob.id, "role": "member"}]
+    expenses = [
+        {
             "name": "Dinner",
             "value": 100,
-            "expense_group_id": group_id,
             "shares": [
-                {"user_id": user.id, "ratio": 0.5},
-                {"user_id": bob.id, "ratio": 0.5},
+                {"user_id": user.id, "ratio": 1 / 2},
+                {"user_id": bob.id, "ratio": 1 / 2},
             ],
-        },
+        }
+    ]
+    group_id = await _set_up_group_with_expense(
+        client, headers, group_name="Trip", members=members, expenses=expenses
     )
 
     remove_resp = await client.delete(
@@ -116,11 +151,8 @@ async def test_settlement_former_member_shares_still_counted(
     )
     assert remove_resp.status_code == 200
 
-    response = await client.get(
-        f"/api/expense-groups/{group_id}/settlement", headers=headers
-    )
-    data = response.json()["data"]
-    balances = {m["user_id"]: m for m in data["members"]}
+    _, balances = await _get_settlement(client, headers, group_id)
+
     assert bob.id in balances
     assert balances[bob.id]["balance"] == pytest.approx(-50.0)
 
@@ -130,21 +162,282 @@ async def test_settlement_pending_expenses_no_shares_excluded_from_settled_total
     client, auth_headers
 ):
     headers, _ = await auth_headers(username="alice", email="alice@example.com")
-    group_resp = await client.post(
-        "/api/expense-groups", headers=headers, json={"name": "Trip"}
-    )
-    group_id = group_resp.json()["data"]["id"]
 
-    await client.post(
-        "/api/expenses",
-        headers=headers,
-        json={"name": "Unsplit", "value": 30, "expense_group_id": group_id},
+    members = []
+    expenses = [
+        {
+            "name": "Unsplit",
+            "value": 30,
+        }
+    ]
+    group_id = await _set_up_group_with_expense(
+        client, headers, group_name="Trip", members=members, expenses=expenses
     )
 
-    response = await client.get(
-        f"/api/expense-groups/{group_id}/settlement", headers=headers
-    )
-    data = response.json()["data"]
+    data, _ = await _get_settlement(client, headers, group_id)
+
     assert data["settled_total"] == pytest.approx(0.0)
     assert data["pending_total"] == pytest.approx(30.0)
     assert len(data["pending_expenses"]) == 1
+
+
+@pytest.mark.asyncio
+async def test_settlement_repayment_exact(
+    client, db_session, auth_headers, create_user
+):
+    headers, user = await auth_headers(username="alice", email="alice@example.com")
+    bob = await create_user(username="bob", email="bob@example.com")
+
+    # Alice created the expense so she was also the payee (fallback to the creator)
+    # That means: Bob should repay Alice his share
+
+    members = [{"id": bob.id, "role": "member"}]
+    expenses = [
+        {
+            "name": "Grocery",
+            "value": 50,
+            "shares": [
+                {"user_id": user.id, "ratio": 1 / 2},
+                {"user_id": bob.id, "ratio": 1 / 2},
+            ],
+        }
+    ]
+    group_id = await _set_up_group_with_expense(
+        client, headers, group_name="Trip", members=members, expenses=expenses
+    )
+
+    # Exact repayment: Bob paid Alice 25
+    await _add_repayment(
+        db_session,
+        group_id,
+        from_user_id=bob.id,
+        to_user_id=user.id,
+        amount=25,
+        created_by_id=user.id,
+    )
+
+    data, balances = await _get_settlement(client, headers, group_id)
+
+    assert len(data["transactions"]) == 0
+    assert user.id in balances
+    assert bob.id in balances
+    assert balances[user.id]["received"] == pytest.approx(25.0)
+    assert balances[bob.id]["sent"] == pytest.approx(25.0)
+    assert balances[user.id]["balance"] == pytest.approx(0.0)
+    assert balances[bob.id]["balance"] == pytest.approx(0.0)
+    assert data["imbalance"] == pytest.approx(0.0)
+
+
+@pytest.mark.asyncio
+async def test_settlement_repayment_partial(
+    client, db_session, auth_headers, create_user
+):
+    headers, user = await auth_headers(username="alice", email="alice@example.com")
+    bob = await create_user(username="bob", email="bob@example.com")
+
+    # Alice created the expense so she was also the payee (fallback to the creator)
+    # That means: Bob should repay Alice his share - 25
+
+    members = [{"id": bob.id, "role": "member"}]
+    expenses = [
+        {
+            "name": "Grocery",
+            "value": 50,
+            "shares": [
+                {"user_id": user.id, "ratio": 1 / 2},
+                {"user_id": bob.id, "ratio": 1 / 2},
+            ],
+        }
+    ]
+    group_id = await _set_up_group_with_expense(
+        client, headers, group_name="Trip", members=members, expenses=expenses
+    )
+
+    # Partial repayment: Bob paid Alice 10 (partially, still owes 15)
+    await _add_repayment(
+        db_session,
+        group_id,
+        from_user_id=bob.id,
+        to_user_id=user.id,
+        amount=10,
+        created_by_id=user.id,
+    )
+
+    data, balances = await _get_settlement(client, headers, group_id)
+
+    assert len(data["transactions"]) == 1
+    assert data["transactions"] == [
+        {"from_user_id": bob.id, "to_user_id": user.id, "amount": pytest.approx(15.0)}
+    ]
+    assert user.id in balances
+    assert bob.id in balances
+    assert balances[user.id]["received"] == pytest.approx(10.0)
+    assert balances[bob.id]["sent"] == pytest.approx(10.0)
+    assert balances[user.id]["balance"] == pytest.approx(15.0)
+    assert balances[bob.id]["balance"] == pytest.approx(-15.0)
+    assert data["imbalance"] == pytest.approx(0.0)
+
+
+@pytest.mark.asyncio
+async def test_settlement_repayment_over(client, db_session, auth_headers, create_user):
+    headers, user = await auth_headers(username="alice", email="alice@example.com")
+    bob = await create_user(username="bob", email="bob@example.com")
+
+    # Alice created the expense so she was also the payee (fallback to the creator)
+    # That means: Bob should repay Alice his share - 25
+
+    members = [{"id": bob.id, "role": "member"}]
+    expenses = [
+        {
+            "name": "Grocery",
+            "value": 50,
+            "shares": [
+                {"user_id": user.id, "ratio": 1 / 2},
+                {"user_id": bob.id, "ratio": 1 / 2},
+            ],
+        }
+    ]
+    group_id = await _set_up_group_with_expense(
+        client, headers, group_name="Trip", members=members, expenses=expenses
+    )
+
+    # Over repayment: Bob paid Alice 50 (over-paid, Alice should pay Bob back 25)
+    await _add_repayment(
+        db_session,
+        group_id,
+        from_user_id=bob.id,
+        to_user_id=user.id,
+        amount=50,
+        created_by_id=user.id,
+    )
+
+    data, balances = await _get_settlement(client, headers, group_id)
+
+    assert len(data["transactions"]) == 1
+    assert data["transactions"] == [
+        {"from_user_id": user.id, "to_user_id": bob.id, "amount": pytest.approx(25.0)}
+    ]
+    assert user.id in balances
+    assert bob.id in balances
+    assert balances[user.id]["received"] == pytest.approx(50.0)
+    assert balances[bob.id]["sent"] == pytest.approx(50.0)
+    assert balances[user.id]["balance"] == pytest.approx(-25.0)
+    assert balances[bob.id]["balance"] == pytest.approx(25.0)
+    assert data["imbalance"] == pytest.approx(0.0)
+
+
+@pytest.mark.asyncio
+async def test_settlement_repayment_soft_delete(
+    client, db_session, auth_headers, create_user
+):
+    headers, user = await auth_headers(username="alice", email="alice@example.com")
+    bob = await create_user(username="bob", email="bob@example.com")
+
+    # Alice created the expense so she was also the payee (fallback to the creator)
+    # That means: Bob should repay Alice his share - 25
+
+    members = [{"id": bob.id, "role": "member"}]
+    expenses = [
+        {
+            "name": "Grocery",
+            "value": 50,
+            "shares": [
+                {"user_id": user.id, "ratio": 1 / 2},
+                {"user_id": bob.id, "ratio": 1 / 2},
+            ],
+        }
+    ]
+    group_id = await _set_up_group_with_expense(
+        client, headers, group_name="Trip", members=members, expenses=expenses
+    )
+
+    # Soft-deleted repayment: Bob paid Alice 25, but the entry is deleted (is_deleted=True)
+    await _add_repayment(
+        db_session,
+        group_id,
+        from_user_id=bob.id,
+        to_user_id=user.id,
+        amount=25,
+        created_by_id=user.id,
+        is_deleted=True,
+    )
+
+    data, balances = await _get_settlement(client, headers, group_id)
+
+    assert len(data["transactions"]) == 1
+    assert data["transactions"] == [
+        {"from_user_id": bob.id, "to_user_id": user.id, "amount": pytest.approx(25.0)}
+    ]
+    assert user.id in balances
+    assert bob.id in balances
+    assert balances[user.id]["received"] == pytest.approx(0.0)
+    assert balances[bob.id]["sent"] == pytest.approx(0.0)
+    assert balances[user.id]["balance"] == pytest.approx(25.0)
+    assert balances[bob.id]["balance"] == pytest.approx(-25.0)
+    assert data["imbalance"] == pytest.approx(0.0)
+
+
+@pytest.mark.asyncio
+async def test_settlement_repayment_former_member(
+    client, db_session, auth_headers, create_user
+):
+    headers, user = await auth_headers(username="alice", email="alice@example.com")
+    bob = await create_user(username="bob", email="bob@example.com")
+    john = await create_user(username="john", email="john@example.com")
+
+    # Alice created the expense so she was also the payee (fallback to the creator)
+    # That means: Bob and John should repay Alice their shares - 20
+    # John was a former member
+
+    members = [{"id": bob.id, "role": "member"}, {"id": john.id, "role": "member"}]
+    expenses = [
+        {
+            "name": "Grocery",
+            "value": 60,
+            "shares": [
+                {"user_id": user.id, "ratio": 1 / 3},
+                {"user_id": bob.id, "ratio": 1 / 3},
+                {"user_id": john.id, "ratio": 1 / 3},
+            ],
+        }
+    ]
+    group_id = await _set_up_group_with_expense(
+        client, headers, group_name="Trip", members=members, expenses=expenses
+    )
+
+    # John paid Alice 20 when he was in the group
+    await _add_repayment(
+        db_session,
+        group_id,
+        from_user_id=john.id,
+        to_user_id=user.id,
+        amount=20,
+        created_by_id=user.id,
+    )
+
+    # Remove John from the group
+    remove_response = await client.delete(
+        f"/api/expense-groups/{group_id}/members?member_ids={john.id}",
+        headers=headers,
+    )
+    assert remove_response.status_code == 200
+
+    data, balances = await _get_settlement(client, headers, group_id)
+
+    # There is only one transaction there (Bob owes Alice)
+    assert len(data["transactions"]) == 1
+    assert data["transactions"] == [
+        {"from_user_id": bob.id, "to_user_id": user.id, "amount": pytest.approx(20.0)}
+    ]
+    assert user.id in balances
+    assert bob.id in balances
+
+    # John is still included in the balances
+    assert john.id in balances
+    assert balances[user.id]["received"] == pytest.approx(20.0)
+    assert balances[bob.id]["sent"] == pytest.approx(0.0)
+    assert balances[john.id]["sent"] == pytest.approx(20.0)
+    assert balances[user.id]["balance"] == pytest.approx(20)
+    assert balances[bob.id]["balance"] == pytest.approx(-20.0)
+    assert balances[john.id]["balance"] == pytest.approx(0.0)
+    assert data["imbalance"] == pytest.approx(0.0)
