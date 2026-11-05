@@ -1,3 +1,5 @@
+import logging
+
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -12,13 +14,11 @@ from app.models import (
     Repayment,
 )
 
-import logging
-
 logger = logging.getLogger("app.settlement")
 
 
 # Helper func
-def initiate_member_dict(user_id, user):
+def _initiate_member_dict(user_id, user):
     return {
         "user_id": user_id,
         "username": (user.username if user else None),
@@ -29,22 +29,17 @@ def initiate_member_dict(user_id, user):
     }
 
 
-async def calculate(db: AsyncSession, expense_group_id: int, user_id: int) -> dict:
-    group_result = await db.execute(
-        select(ExpenseGroup)
-        .where(ExpenseGroup.id == expense_group_id)
-        .options(
-            selectinload(ExpenseGroup.members).selectinload(ExpenseGroupMember.user)
+async def load_settlement_inputs(
+    db: AsyncSession, expense_group_id: int
+) -> tuple[list[Expense], list[Repayment]]:
+    expenses_result = await db.execute(
+        select(Expense)
+        .where(
+            Expense.expense_group_id == expense_group_id, Expense.is_deleted.is_(False)
         )
+        .options(selectinload(Expense.shares).selectinload(ExpenseShare.user))
     )
-    group = group_result.scalar_one_or_none()
-    if not group:
-        raise NotFoundError("Group not found")
-
-    if not await is_app_admin(db, user_id) and not await is_group_member(
-        db, expense_group_id, user_id
-    ):
-        raise ForbiddenError("Not a member of this group")
+    expenses = list(expenses_result.scalars().all())
 
     repayments_result = await db.execute(
         select(Repayment)
@@ -56,15 +51,12 @@ async def calculate(db: AsyncSession, expense_group_id: int, user_id: int) -> di
     )
     repayments = list(repayments_result.scalars().all())
 
-    expenses_result = await db.execute(
-        select(Expense)
-        .where(
-            Expense.expense_group_id == expense_group_id, Expense.is_deleted.is_(False)
-        )
-        .options(selectinload(Expense.shares).selectinload(ExpenseShare.user))
-    )
-    expenses = list(expenses_result.scalars().all())
+    return expenses, repayments
 
+
+def compute_settlement(
+    group: ExpenseGroup, expenses: list[Expense], repayments: list[Repayment]
+) -> dict:
     settled_expenses = [e for e in expenses if e.shares]
     settled_total = round(sum(e.value for e in settled_expenses), 2)
 
@@ -84,7 +76,7 @@ async def calculate(db: AsyncSession, expense_group_id: int, user_id: int) -> di
     # Calculate how much each member should pay based on split ratio
     member_data = {}
     for member in group.members:
-        member_data[member.user_id] = initiate_member_dict(member.user_id, member.user)
+        member_data[member.user_id] = _initiate_member_dict(member.user_id, member.user)
 
     # Calculate how much each member actually paid
     for expense in settled_expenses:
@@ -96,7 +88,7 @@ async def calculate(db: AsyncSession, expense_group_id: int, user_id: int) -> di
         for share in expense.shares:
             # former member — add them temporarily
             if share.user_id not in member_data:
-                member_data[share.user_id] = initiate_member_dict(
+                member_data[share.user_id] = _initiate_member_dict(
                     share.user_id, share.user
                 )
 
@@ -106,13 +98,13 @@ async def calculate(db: AsyncSession, expense_group_id: int, user_id: int) -> di
     for repayment in repayments:
         if repayment.from_user_id not in member_data:
             # former member — add them temporarily
-            member_data[repayment.from_user_id] = initiate_member_dict(
+            member_data[repayment.from_user_id] = _initiate_member_dict(
                 repayment.from_user_id, repayment.from_user
             )
 
         if repayment.to_user_id not in member_data:
             # former member — add them temporarily
-            member_data[repayment.to_user_id] = initiate_member_dict(
+            member_data[repayment.to_user_id] = _initiate_member_dict(
                 repayment.to_user_id, repayment.to_user
             )
 
@@ -144,7 +136,7 @@ async def calculate(db: AsyncSession, expense_group_id: int, user_id: int) -> di
     if abs(imbalance) > tolerance:
         logger.warning(
             "Settlement imbalance in group %s: %s (tolerance %s, %s shares)",
-            expense_group_id,
+            group.id,
             imbalance,
             tolerance,
             n_shares,
@@ -189,7 +181,6 @@ async def calculate(db: AsyncSession, expense_group_id: int, user_id: int) -> di
             j += 1
 
     return {
-        "expense_group_id": expense_group_id,
         "members": members_list,
         "transactions": transactions,
         "pending_expenses": pending_expenses,
@@ -197,4 +188,31 @@ async def calculate(db: AsyncSession, expense_group_id: int, user_id: int) -> di
         "settled_total": settled_total,
         "total": round(settled_total + pending_total, 2),
         "imbalance": imbalance,  # TODO: show in UI which expense causes this
+    }
+
+
+async def calculate(db: AsyncSession, expense_group_id: int, user_id: int) -> dict:
+    if not await is_app_admin(db, user_id) and not await is_group_member(
+        db, expense_group_id, user_id
+    ):
+        raise ForbiddenError("Not a member of this group")
+
+    group_result = await db.execute(
+        select(ExpenseGroup)
+        .where(ExpenseGroup.id == expense_group_id)
+        .options(
+            selectinload(ExpenseGroup.members).selectinload(ExpenseGroupMember.user)
+        )
+    )
+    group = group_result.scalar_one_or_none()
+    if not group:
+        raise NotFoundError("Group not found")
+
+    expenses, repayments = await load_settlement_inputs(db, expense_group_id)
+
+    settlement = compute_settlement(group, expenses, repayments)
+
+    return {
+        **settlement,
+        "expense_group_id": expense_group_id,
     }

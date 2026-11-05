@@ -3,46 +3,13 @@ import pytest
 from app.models.mixins import utcnow
 
 
-async def _set_up_group_with_expense(client, headers, group_name, members, expenses):
-    group_resp = await client.post(
-        "/api/expense-groups",
-        headers=headers,
-        json={
-            "name": group_name,
-            "members": members,
-        },
-    )
-    assert group_resp.status_code == 201, group_resp.text
-
-    group_id = group_resp.json()["data"]["id"]
-
-    for expense_payload in expenses:
-        resp = await client.post(
-            "/api/expenses",
-            headers=headers,
-            json={
-                **expense_payload,
-                "expense_group_id": group_id,
-            },
-        )
-        assert resp.status_code == 201, resp.text
-
-    return group_id
-
-
-async def _get_settlement(client, headers, group_id):
-    resp = await client.get(
-        f"/api/expense-groups/{group_id}/settlement", headers=headers
-    )
-    assert resp.status_code == 200, resp.text
-
-    data = resp.json()["data"]
-
-    return data, {m["user_id"]: m for m in data["members"]}
-
-
 @pytest.mark.asyncio
-async def test_settlement_balances_paid_minus_owed(client, auth_headers, create_user):
+async def test_settlement_balances_paid_minus_owed(
+    auth_headers,
+    create_user,
+    set_up_group_with_members_and_expenses,
+    get_settlement,
+):
     headers, user = await auth_headers(username="alice", email="alice@example.com")
     bob = await create_user(username="bob", email="bob@example.com")
 
@@ -57,11 +24,11 @@ async def test_settlement_balances_paid_minus_owed(client, auth_headers, create_
             ],
         }
     ]
-    group_id = await _set_up_group_with_expense(
-        client, headers, group_name="Trip", members=members, expenses=expenses
+    group_id = await set_up_group_with_members_and_expenses(
+        headers, group_name="Trip", members=members, expenses=expenses
     )
 
-    _, balances = await _get_settlement(client, headers, group_id)
+    _, balances = await get_settlement(headers, group_id)
 
     assert balances[user.id]["balance"] == pytest.approx(40.0)
     assert balances[bob.id]["balance"] == pytest.approx(-40.0)
@@ -69,7 +36,10 @@ async def test_settlement_balances_paid_minus_owed(client, auth_headers, create_
 
 @pytest.mark.asyncio
 async def test_settlement_debt_simplification_transactions(
-    client, auth_headers, create_user
+    auth_headers,
+    create_user,
+    set_up_group_with_members_and_expenses,
+    get_settlement,
 ):
     headers, user = await auth_headers(username="alice", email="alice@example.com")
     bob = await create_user(username="bob", email="bob@example.com")
@@ -87,11 +57,11 @@ async def test_settlement_debt_simplification_transactions(
             ],
         }
     ]
-    group_id = await _set_up_group_with_expense(
-        client, headers, group_name="Trip", members=members, expenses=expenses
+    group_id = await set_up_group_with_members_and_expenses(
+        headers, group_name="Trip", members=members, expenses=expenses
     )
 
-    data, _ = await _get_settlement(client, headers, group_id)
+    data, _ = await get_settlement(headers, group_id)
 
     total_transacted = sum(t["amount"] for t in data["transactions"])
     assert total_transacted == pytest.approx(60.0)
@@ -101,7 +71,11 @@ async def test_settlement_debt_simplification_transactions(
 
 @pytest.mark.asyncio
 async def test_settlement_former_member_shares_still_counted(
-    client, auth_headers, create_user
+    client,
+    auth_headers,
+    create_user,
+    set_up_group_with_members_and_expenses,
+    get_settlement,
 ):
     headers, user = await auth_headers(username="alice", email="alice@example.com")
     bob = await create_user(username="bob", email="bob@example.com")
@@ -117,8 +91,8 @@ async def test_settlement_former_member_shares_still_counted(
             ],
         }
     ]
-    group_id = await _set_up_group_with_expense(
-        client, headers, group_name="Trip", members=members, expenses=expenses
+    group_id = await set_up_group_with_members_and_expenses(
+        headers, group_name="Trip", members=members, expenses=expenses
     )
 
     remove_resp = await client.delete(
@@ -126,7 +100,7 @@ async def test_settlement_former_member_shares_still_counted(
     )
     assert remove_resp.status_code == 200
 
-    _, balances = await _get_settlement(client, headers, group_id)
+    _, balances = await get_settlement(headers, group_id)
 
     assert bob.id in balances
     assert balances[bob.id]["balance"] == pytest.approx(-50.0)
@@ -134,7 +108,9 @@ async def test_settlement_former_member_shares_still_counted(
 
 @pytest.mark.asyncio
 async def test_settlement_pending_expenses_no_shares_excluded_from_settled_total(
-    client, auth_headers
+    auth_headers,
+    set_up_group_with_members_and_expenses,
+    get_settlement,
 ):
     headers, _ = await auth_headers(username="alice", email="alice@example.com")
 
@@ -145,11 +121,11 @@ async def test_settlement_pending_expenses_no_shares_excluded_from_settled_total
             "value": 30,
         }
     ]
-    group_id = await _set_up_group_with_expense(
-        client, headers, group_name="Trip", members=members, expenses=expenses
+    group_id = await set_up_group_with_members_and_expenses(
+        headers, group_name="Trip", members=members, expenses=expenses
     )
 
-    data, _ = await _get_settlement(client, headers, group_id)
+    data, _ = await get_settlement(headers, group_id)
 
     assert data["settled_total"] == pytest.approx(0.0)
     assert data["pending_total"] == pytest.approx(30.0)
@@ -158,7 +134,11 @@ async def test_settlement_pending_expenses_no_shares_excluded_from_settled_total
 
 @pytest.mark.asyncio
 async def test_settlement_repayment_exact(
-    client, auth_headers, create_user, add_repayment
+    auth_headers,
+    create_user,
+    add_repayment,
+    set_up_group_with_members_and_expenses,
+    get_settlement,
 ):
     headers, user = await auth_headers(username="alice", email="alice@example.com")
     bob = await create_user(username="bob", email="bob@example.com")
@@ -177,8 +157,8 @@ async def test_settlement_repayment_exact(
             ],
         }
     ]
-    group_id = await _set_up_group_with_expense(
-        client, headers, group_name="Trip", members=members, expenses=expenses
+    group_id = await set_up_group_with_members_and_expenses(
+        headers, group_name="Trip", members=members, expenses=expenses
     )
 
     # Exact repayment: Bob paid Alice 25
@@ -190,7 +170,7 @@ async def test_settlement_repayment_exact(
         created_by_id=user.id,
     )
 
-    data, balances = await _get_settlement(client, headers, group_id)
+    data, balances = await get_settlement(headers, group_id)
 
     assert len(data["transactions"]) == 0
     assert user.id in balances
@@ -204,7 +184,11 @@ async def test_settlement_repayment_exact(
 
 @pytest.mark.asyncio
 async def test_settlement_repayment_partial(
-    client, auth_headers, create_user, add_repayment
+    auth_headers,
+    create_user,
+    add_repayment,
+    set_up_group_with_members_and_expenses,
+    get_settlement,
 ):
     headers, user = await auth_headers(username="alice", email="alice@example.com")
     bob = await create_user(username="bob", email="bob@example.com")
@@ -223,8 +207,8 @@ async def test_settlement_repayment_partial(
             ],
         }
     ]
-    group_id = await _set_up_group_with_expense(
-        client, headers, group_name="Trip", members=members, expenses=expenses
+    group_id = await set_up_group_with_members_and_expenses(
+        headers, group_name="Trip", members=members, expenses=expenses
     )
 
     # Partial repayment: Bob paid Alice 10 (partially, still owes 15)
@@ -236,7 +220,7 @@ async def test_settlement_repayment_partial(
         created_by_id=user.id,
     )
 
-    data, balances = await _get_settlement(client, headers, group_id)
+    data, balances = await get_settlement(headers, group_id)
 
     assert len(data["transactions"]) == 1
     assert data["transactions"] == [
@@ -253,7 +237,11 @@ async def test_settlement_repayment_partial(
 
 @pytest.mark.asyncio
 async def test_settlement_repayment_over(
-    client, auth_headers, create_user, add_repayment
+    auth_headers,
+    create_user,
+    add_repayment,
+    set_up_group_with_members_and_expenses,
+    get_settlement,
 ):
     headers, user = await auth_headers(username="alice", email="alice@example.com")
     bob = await create_user(username="bob", email="bob@example.com")
@@ -272,8 +260,8 @@ async def test_settlement_repayment_over(
             ],
         }
     ]
-    group_id = await _set_up_group_with_expense(
-        client, headers, group_name="Trip", members=members, expenses=expenses
+    group_id = await set_up_group_with_members_and_expenses(
+        headers, group_name="Trip", members=members, expenses=expenses
     )
 
     # Over repayment: Bob paid Alice 50 (over-paid, Alice should pay Bob back 25)
@@ -285,7 +273,7 @@ async def test_settlement_repayment_over(
         created_by_id=user.id,
     )
 
-    data, balances = await _get_settlement(client, headers, group_id)
+    data, balances = await get_settlement(headers, group_id)
 
     assert len(data["transactions"]) == 1
     assert data["transactions"] == [
@@ -302,7 +290,11 @@ async def test_settlement_repayment_over(
 
 @pytest.mark.asyncio
 async def test_settlement_repayment_soft_delete(
-    client, auth_headers, create_user, add_repayment
+    auth_headers,
+    create_user,
+    add_repayment,
+    set_up_group_with_members_and_expenses,
+    get_settlement,
 ):
     headers, user = await auth_headers(username="alice", email="alice@example.com")
     bob = await create_user(username="bob", email="bob@example.com")
@@ -321,8 +313,8 @@ async def test_settlement_repayment_soft_delete(
             ],
         }
     ]
-    group_id = await _set_up_group_with_expense(
-        client, headers, group_name="Trip", members=members, expenses=expenses
+    group_id = await set_up_group_with_members_and_expenses(
+        headers, group_name="Trip", members=members, expenses=expenses
     )
 
     # Soft-deleted repayment: Bob paid Alice 25, but the entry is deleted (is_deleted=True)
@@ -333,10 +325,10 @@ async def test_settlement_repayment_soft_delete(
         amount=25,
         created_by_id=user.id,
         is_deleted=True,
-        deleted_at=utcnow()
+        deleted_at=utcnow(),
     )
 
-    data, balances = await _get_settlement(client, headers, group_id)
+    data, balances = await get_settlement(headers, group_id)
 
     assert len(data["transactions"]) == 1
     assert data["transactions"] == [
@@ -353,7 +345,12 @@ async def test_settlement_repayment_soft_delete(
 
 @pytest.mark.asyncio
 async def test_settlement_repayment_former_member(
-    client, auth_headers, create_user, add_repayment
+    client,
+    auth_headers,
+    create_user,
+    add_repayment,
+    set_up_group_with_members_and_expenses,
+    get_settlement,
 ):
     headers, user = await auth_headers(username="alice", email="alice@example.com")
     bob = await create_user(username="bob", email="bob@example.com")
@@ -375,8 +372,8 @@ async def test_settlement_repayment_former_member(
             ],
         }
     ]
-    group_id = await _set_up_group_with_expense(
-        client, headers, group_name="Trip", members=members, expenses=expenses
+    group_id = await set_up_group_with_members_and_expenses(
+        headers, group_name="Trip", members=members, expenses=expenses
     )
 
     # John paid Alice 20 when he was in the group
@@ -395,7 +392,7 @@ async def test_settlement_repayment_former_member(
     )
     assert remove_response.status_code == 200
 
-    data, balances = await _get_settlement(client, headers, group_id)
+    data, balances = await get_settlement(headers, group_id)
 
     # There is only one transaction there (Bob owes Alice)
     assert len(data["transactions"]) == 1

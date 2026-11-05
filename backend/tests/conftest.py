@@ -1,3 +1,7 @@
+from datetime import datetime
+from typing import Any
+
+import pytest
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
@@ -79,28 +83,36 @@ async def create_user(db_session):
 
 
 @pytest_asyncio.fixture
-async def auth_headers(create_user):
+async def auth_headers(create_user, headers_for):
     async def _headers(**kwargs) -> tuple[dict, User]:
         user = await create_user(**kwargs)
-        token = create_access_token(str(user.id))
-        return {"Authorization": f"Bearer {token}"}, user
+        return headers_for(user), user
 
     return _headers
+
+
+@pytest.fixture
+def headers_for():
+    def _headers_for(user: User) -> dict[str, str]:
+        token = create_access_token(str(user.id))
+        return {"Authorization": f"Bearer {token}"}
+
+    return _headers_for
 
 
 @pytest_asyncio.fixture
 async def add_repayment(db_session):
     async def _add_repayment(
-        expense_group_id,
-        from_user_id,
-        to_user_id,
-        amount,
-        created_by_id,
-        is_deleted=False,
-        deleted_at=None,
-        deleted_by_id=None,
-        deleted_note=None
-    ):
+        expense_group_id: int,
+        from_user_id: int,
+        to_user_id: int,
+        amount: float,
+        created_by_id: int,
+        is_deleted: bool = False,
+        deleted_at: datetime | None = None,
+        deleted_by_id: int | None = None,
+        deleted_note: str | None = None,
+    ) -> Repayment:
         repayment = Repayment(
             amount=amount,
             is_deleted=is_deleted,
@@ -110,7 +122,7 @@ async def add_repayment(db_session):
             expense_group_id=expense_group_id,
             deleted_at=deleted_at,
             deleted_by_id=deleted_by_id,
-            deleted_note=deleted_note
+            deleted_note=deleted_note,
         )
 
         db_session.add(repayment)

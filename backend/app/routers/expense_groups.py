@@ -15,8 +15,14 @@ from app.schemas.expense_group import (
     MemberUpdate,
 )
 from app.schemas.notification import NotificationOut
+from app.schemas.repayment import RepaymentCreate, RepaymentOut, RepaymentUnresolve
 from app.schemas.settlement import SettlementOut
-from app.services import email_service, expense_group_service, settlement_service
+from app.services import (
+    email_service,
+    expense_group_service,
+    repayment_service,
+    settlement_service,
+)
 
 router = APIRouter()
 
@@ -160,3 +166,40 @@ async def get_settlement(
 ):
     result = await settlement_service.calculate(db, expense_group_id, user_id)
     return envelope(SettlementOut.model_validate(result).model_dump(mode="json"))
+
+
+@router.post("/{expense_group_id}/repayments", status_code=201)
+async def create_repayment(
+    data: RepaymentCreate,
+    expense_group_id: int,
+    user_id: int = Depends(get_current_user_id),
+    db: AsyncSession = Depends(get_db),
+):
+    result = await repayment_service.create(db, expense_group_id, user_id, data)
+    return envelope(RepaymentOut.model_validate(result).model_dump(mode="json"))
+
+
+@router.get("/{expense_group_id}/repayments")
+async def get_repayments(
+    expense_group_id: int,
+    user_id: int = Depends(get_current_user_id),
+    db: AsyncSession = Depends(get_db),
+):
+    repayments = await repayment_service.get_all(db, expense_group_id, user_id)
+    return envelope(
+        [RepaymentOut.model_validate(rp).model_dump(mode="json") for rp in repayments]
+    )
+
+
+@router.post("/{expense_group_id}/repayments/{repayment_id}/unresolve")
+async def unresolve_repayment(
+    expense_group_id: int,
+    repayment_id: int,
+    user_id: int = Depends(get_current_user_id),
+    db: AsyncSession = Depends(get_db),
+    data: RepaymentUnresolve | None = None,
+):
+    result = await repayment_service.unresolve(
+        db, expense_group_id, repayment_id, user_id, data or RepaymentUnresolve()
+    )
+    return envelope(RepaymentOut.model_validate(result).model_dump(mode="json"))
