@@ -4,6 +4,7 @@ import pytest
 from sqlalchemy import select
 
 from app.models import AppRole, ExpenseGroup, ExpenseGroupMember, User
+from app.models.repayment import Repayment
 from app.services import guest_service
 
 
@@ -94,28 +95,40 @@ async def test_get_users_excludes_guests(client, auth_headers):
 
 
 @pytest.mark.asyncio
-async def test_guest_logout_deletes_own_account_and_data(client, db_session):
+async def test_guest_logout_deletes_own_account_and_data(
+    client, db_session, add_repayment
+):
     login = await client.post("/api/auth/guest")
     data = login.json()["data"]
     guest_id = data["user"]["id"]
     headers = {"Authorization": f"Bearer {data['access_token']}"}
+
+    companion_result = await db_session.execute(
+        select(User).where(User.username == guest_service.COMPANION_USERNAME)
+    )
+    companion_id = companion_result.scalar_one().id
 
     group_result = await db_session.execute(
         select(ExpenseGroup).where(ExpenseGroup.created_by_id == guest_id)
     )
     group_id = group_result.scalar_one().id
 
+    repayment = await add_repayment(
+        group_id,
+        from_user_id=companion_id,
+        to_user_id=guest_id,
+        amount=20,
+        created_by_id=guest_id,
+    )
+
     response = await client.post("/api/auth/guest/logout", headers=headers)
     assert response.status_code == 200
 
     assert await db_session.get(User, guest_id) is None
     assert await db_session.get(ExpenseGroup, group_id) is None
-
     # Companion account survives - it's a shared, permanent fixture.
-    companion_result = await db_session.execute(
-        select(User).where(User.username == guest_service.COMPANION_USERNAME)
-    )
-    assert companion_result.scalar_one_or_none() is not None
+    assert await db_session.get(User, companion_id) is not None
+    assert await db_session.get(Repayment, repayment.id) is None
 
 
 @pytest.mark.asyncio

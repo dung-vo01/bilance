@@ -1,31 +1,6 @@
 import pytest
 
-from app.models.repayment import Repayment
-
-
-# TEMP: to add repayment between members (will replace with actual API soon)
-async def _add_repayment(
-    db_session,
-    expense_group_id,
-    from_user_id,
-    to_user_id,
-    amount,
-    created_by_id,
-    is_deleted=False,
-):
-    repayment = Repayment(
-        amount=amount,
-        is_deleted=is_deleted,
-        created_by_id=created_by_id,
-        from_user_id=from_user_id,
-        to_user_id=to_user_id,
-        expense_group_id=expense_group_id,
-    )
-    db_session.add(repayment)
-    await db_session.commit()
-    await db_session.refresh(repayment)
-
-    return repayment
+from app.models.mixins import utcnow
 
 
 async def _set_up_group_with_expense(client, headers, group_name, members, expenses):
@@ -183,7 +158,7 @@ async def test_settlement_pending_expenses_no_shares_excluded_from_settled_total
 
 @pytest.mark.asyncio
 async def test_settlement_repayment_exact(
-    client, db_session, auth_headers, create_user
+    client, auth_headers, create_user, add_repayment
 ):
     headers, user = await auth_headers(username="alice", email="alice@example.com")
     bob = await create_user(username="bob", email="bob@example.com")
@@ -207,8 +182,7 @@ async def test_settlement_repayment_exact(
     )
 
     # Exact repayment: Bob paid Alice 25
-    await _add_repayment(
-        db_session,
+    await add_repayment(
         group_id,
         from_user_id=bob.id,
         to_user_id=user.id,
@@ -230,7 +204,7 @@ async def test_settlement_repayment_exact(
 
 @pytest.mark.asyncio
 async def test_settlement_repayment_partial(
-    client, db_session, auth_headers, create_user
+    client, auth_headers, create_user, add_repayment
 ):
     headers, user = await auth_headers(username="alice", email="alice@example.com")
     bob = await create_user(username="bob", email="bob@example.com")
@@ -254,8 +228,7 @@ async def test_settlement_repayment_partial(
     )
 
     # Partial repayment: Bob paid Alice 10 (partially, still owes 15)
-    await _add_repayment(
-        db_session,
+    await add_repayment(
         group_id,
         from_user_id=bob.id,
         to_user_id=user.id,
@@ -279,7 +252,9 @@ async def test_settlement_repayment_partial(
 
 
 @pytest.mark.asyncio
-async def test_settlement_repayment_over(client, db_session, auth_headers, create_user):
+async def test_settlement_repayment_over(
+    client, auth_headers, create_user, add_repayment
+):
     headers, user = await auth_headers(username="alice", email="alice@example.com")
     bob = await create_user(username="bob", email="bob@example.com")
 
@@ -302,8 +277,7 @@ async def test_settlement_repayment_over(client, db_session, auth_headers, creat
     )
 
     # Over repayment: Bob paid Alice 50 (over-paid, Alice should pay Bob back 25)
-    await _add_repayment(
-        db_session,
+    await add_repayment(
         group_id,
         from_user_id=bob.id,
         to_user_id=user.id,
@@ -328,7 +302,7 @@ async def test_settlement_repayment_over(client, db_session, auth_headers, creat
 
 @pytest.mark.asyncio
 async def test_settlement_repayment_soft_delete(
-    client, db_session, auth_headers, create_user
+    client, auth_headers, create_user, add_repayment
 ):
     headers, user = await auth_headers(username="alice", email="alice@example.com")
     bob = await create_user(username="bob", email="bob@example.com")
@@ -352,14 +326,14 @@ async def test_settlement_repayment_soft_delete(
     )
 
     # Soft-deleted repayment: Bob paid Alice 25, but the entry is deleted (is_deleted=True)
-    await _add_repayment(
-        db_session,
+    await add_repayment(
         group_id,
         from_user_id=bob.id,
         to_user_id=user.id,
         amount=25,
         created_by_id=user.id,
         is_deleted=True,
+        deleted_at=utcnow()
     )
 
     data, balances = await _get_settlement(client, headers, group_id)
@@ -379,7 +353,7 @@ async def test_settlement_repayment_soft_delete(
 
 @pytest.mark.asyncio
 async def test_settlement_repayment_former_member(
-    client, db_session, auth_headers, create_user
+    client, auth_headers, create_user, add_repayment
 ):
     headers, user = await auth_headers(username="alice", email="alice@example.com")
     bob = await create_user(username="bob", email="bob@example.com")
@@ -406,8 +380,7 @@ async def test_settlement_repayment_former_member(
     )
 
     # John paid Alice 20 when he was in the group
-    await _add_repayment(
-        db_session,
+    await add_repayment(
         group_id,
         from_user_id=john.id,
         to_user_id=user.id,

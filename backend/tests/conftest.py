@@ -8,6 +8,7 @@ from app.core.security import create_access_token, hash_password
 from app.db.base import Base
 from app.db.session import get_db
 from app.models import AppRole, User
+from app.models.repayment import Repayment
 from main import app
 
 
@@ -85,3 +86,37 @@ async def auth_headers(create_user):
         return {"Authorization": f"Bearer {token}"}, user
 
     return _headers
+
+
+@pytest_asyncio.fixture
+async def add_repayment(db_session):
+    async def _add_repayment(
+        expense_group_id,
+        from_user_id,
+        to_user_id,
+        amount,
+        created_by_id,
+        is_deleted=False,
+        deleted_at=None,
+        deleted_by_id=None,
+        deleted_note=None
+    ):
+        repayment = Repayment(
+            amount=amount,
+            is_deleted=is_deleted,
+            created_by_id=created_by_id,
+            from_user_id=from_user_id,
+            to_user_id=to_user_id,
+            expense_group_id=expense_group_id,
+            deleted_at=deleted_at,
+            deleted_by_id=deleted_by_id,
+            deleted_note=deleted_note
+        )
+
+        db_session.add(repayment)
+        await db_session.commit()
+        await db_session.refresh(repayment)
+
+        return repayment
+
+    return _add_repayment
