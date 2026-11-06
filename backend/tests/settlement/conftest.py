@@ -1,3 +1,4 @@
+from types import SimpleNamespace
 from typing import Any
 
 import pytest_asyncio
@@ -73,3 +74,56 @@ async def create_repayment(client):
         return body["data"] if resp.status_code < 400 else body
 
     return _create_repayment
+
+
+# Scenario setup: Alice created the group => group admin
+# Bob, John, Dung are the other members
+# Bob made an expense of 50, shared with John 50/50
+# Dung is just a group member, not involve in any expense
+@pytest_asyncio.fixture
+async def bob_paid_john_owes(
+    create_user, headers_for, set_up_group_with_members_and_expenses
+):
+    alice = await create_user(
+        username="alice", email="alice@example.com"
+    )  # group admin
+    bob = await create_user(username="bob", email="bob@example.com")  # paid the expense
+    john = await create_user(username="john", email="john@example.com")  # owes 25
+    dung = await create_user(username="dung", email="dung@example.com")  # just a member
+
+    alice_headers = headers_for(alice)
+    bob_headers = headers_for(bob)
+    john_headers = headers_for(john)
+    dung_headers = headers_for(dung)
+
+    members = [
+        {"id": bob.id, "role": "member"},
+        {"id": john.id, "role": "member"},
+        {"id": dung.id, "role": "member"},
+    ]
+    expenses = [
+        {
+            "name": "Grocery",
+            "value": 50,
+            "payee_id": bob.id,
+            "shares": [
+                {"user_id": bob.id, "ratio": 1 / 2},
+                {"user_id": john.id, "ratio": 1 / 2},
+            ],
+        }
+    ]
+    group_id = await set_up_group_with_members_and_expenses(
+        alice_headers, group_name="Trip", members=members, expenses=expenses
+    )
+
+    return SimpleNamespace(
+        alice=alice,
+        bob=bob,
+        john=john,
+        dung=dung,
+        alice_headers=alice_headers,
+        bob_headers=bob_headers,
+        john_headers=john_headers,
+        dung_headers=dung_headers,
+        group_id=group_id,
+    )
