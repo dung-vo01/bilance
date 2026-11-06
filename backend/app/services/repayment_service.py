@@ -145,14 +145,12 @@ async def unresolve(
         and not await is_group_admin(db, expense_group_id, user_id)
         and user_id not in (repayment.from_user_id, repayment.to_user_id)
     ):
-        raise ForbiddenError(
-            f"You are not allowed to unresolve this repayment (id={repayment_id})"
-        )
+        raise ForbiddenError("You are not allowed to unresolve this repayment!")
 
     # Check if repayment is already unresolved: if so, raise an error
     # An repayment can only be unresolved once
     if repayment.is_deleted:
-        raise ConflictError("Repayment was already unresolved")
+        raise ConflictError("Repayment was already unresolved!")
 
     repayment.is_deleted = True
     repayment.deleted_at = utcnow()

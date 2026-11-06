@@ -76,6 +76,47 @@ async def create_repayment(client):
     return _create_repayment
 
 
+@pytest_asyncio.fixture
+async def unresolve_repayment(client):
+    async def _unresolve_repayment(
+        headers,
+        group_id: int,
+        repayment_id: int,
+        unresolve_payload: dict[str, Any],
+        expected_status: int = 200,
+    ):
+        resp = await client.post(
+            f"/api/expense-groups/{group_id}/repayments/{repayment_id}/unresolve",
+            headers=headers,
+            json=unresolve_payload,
+        )
+        assert resp.status_code == expected_status, resp.text
+
+        body = resp.json()
+        return body["data"] if resp.status_code < 400 else body
+
+    return _unresolve_repayment
+
+
+@pytest_asyncio.fixture
+async def get_repayments(client):
+    async def _get_repayments(
+        headers,
+        group_id: int,
+        expected_status: int = 200,
+    ):
+        resp = await client.get(
+            f"/api/expense-groups/{group_id}/repayments",
+            headers=headers,
+        )
+        assert resp.status_code == expected_status, resp.text
+
+        body = resp.json()
+        return body["data"] if resp.status_code < 400 else body
+
+    return _get_repayments
+
+
 # Scenario setup: Alice created the group => group admin
 # Bob, John, Dung are the other members
 # Bob made an expense of 50, shared with John 50/50
