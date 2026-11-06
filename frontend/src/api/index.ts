@@ -21,6 +21,9 @@ import type {
   CategoryBreakdown,
   ContactUser,
   ContactDetail,
+  Repayment,
+  NewRepaymentPayload,
+  UndoRepaymentPayload,
 } from "@/types";
 
 //--------------------------------------------------------------------------------
@@ -176,6 +179,22 @@ export const expenseGroupsApi = {
 
   getSettlement: (id: number) =>
     api.get<{ data: Settlement }>(`/expense-groups/${id}/settlement`),
+
+  getRepayments: (id: number) =>
+    api.get<{ data: Repayment[] }>(`/expense-groups/${id}/repayments`),
+
+  createRepayment: (id: number, data: NewRepaymentPayload) =>
+    api.post<{ data: Repayment }>(`/expense-groups/${id}/repayments`, data),
+
+  undoRepayment: (
+    id: number,
+    repayment_id: number,
+    data: UndoRepaymentPayload,
+  ) =>
+    api.post<{ data: Repayment }>(
+      `/expense-groups/${id}/repayments/${repayment_id}/unresolve`,
+      data,
+    ),
 };
 
 //--------------------------------------------------------------------------------

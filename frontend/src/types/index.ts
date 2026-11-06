@@ -71,6 +71,7 @@ export interface Settlement {
   pending_total: number;
   settled_total: number;
   total: number;
+  imbalance: number;
 }
 
 export interface SettlementMember {
@@ -79,12 +80,42 @@ export interface SettlementMember {
   should_pay: number;
   paid: number;
   balance: number;
+  sent: number;
+  received: number;
 }
 
 export interface Transaction {
   from_user_id: number;
   to_user_id: number;
   amount: number;
+}
+
+export interface Repayment {
+  id: number;
+  expense_group_id: number;
+  amount: number;
+  note: string | null;
+  deleted_note: string | null;
+  is_deleted: boolean;
+  created_at: string;
+  paid_at: string;
+  deleted_at: string | null;
+  created_by: User;
+  from_user: User;
+  to_user: User;
+  deleted_by: User | null;
+}
+
+export interface NewRepaymentPayload {
+  amount: number;
+  note?: string | null;
+  paid_at?: string;
+  from_user_id: number;
+  to_user_id: number;
+}
+
+export interface UndoRepaymentPayload {
+  deleted_note?: string | null;
 }
 
 export type NotificationType =

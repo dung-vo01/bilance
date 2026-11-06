@@ -19,7 +19,9 @@ import {
   ExpenseGroup,
   ExpenseGroupMember,
   ExpenseListParams,
+  NewRepaymentPayload,
   Notification,
+  UndoRepaymentPayload,
   UpdateCategoryPayload,
   UpdateExpenseGroupPayload,
   UpdateExpensePayload,
@@ -36,6 +38,7 @@ export const queryKeys = {
   expense_groups: ["expense_groups"] as const,
   expense_group: (id: number) => ["expense_groups", id] as const,
   settlement: (id: number) => ["expense_groups", id, "settlement"] as const,
+  repayments: (id: number) => ["expense_groups", id, "repayments"] as const,
   expenses: (params?: object) => ["expenses", params] as const,
   expensePayees: (expenseGroupId: number) =>
     ["expenses", "payees", expenseGroupId] as const,
@@ -438,6 +441,43 @@ export const useSettlement = (id: number) =>
     queryKey: queryKeys.settlement(id),
     queryFn: () => expenseGroupsApi.getSettlement(id).then((r) => r.data.data),
   });
+
+export const useRepayments = (id: number) =>
+  useQuery({
+    queryKey: queryKeys.repayments(id),
+    queryFn: () => expenseGroupsApi.getRepayments(id).then((r) => r.data.data),
+  });
+
+export const useCreateRepayment = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, data }: { id: number; data: NewRepaymentPayload }) =>
+      expenseGroupsApi.createRepayment(id, data),
+    onSettled: (_res, _err, { id }) => {
+      qc.invalidateQueries({ queryKey: queryKeys.repayments(id) });
+      qc.invalidateQueries({ queryKey: queryKeys.settlement(id) });
+    },
+  });
+};
+
+export const useUndoRepayment = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      id,
+      repayment_id,
+      data,
+    }: {
+      id: number;
+      repayment_id: number;
+      data: UndoRepaymentPayload;
+    }) => expenseGroupsApi.undoRepayment(id, repayment_id, data),
+    onSettled: (_res, _err, { id }) => {
+      qc.invalidateQueries({ queryKey: queryKeys.repayments(id) });
+      qc.invalidateQueries({ queryKey: queryKeys.settlement(id) });
+    },
+  });
+};
 
 //--------------------------------------------------------------------------------
 // Expenses
