@@ -1,10 +1,17 @@
-import { Expense, ExpenseGroup, Settlement } from "@/types";
+import {
+  Expense,
+  ExpenseGroup,
+  Settlement,
+  TransactionWithUserInfo,
+} from "@/types";
 import styles from "./SettlementTab.module.scss";
 import { Icon } from "@iconify/react";
 import { useAuthStore } from "@/stores/authStore";
 import { useState } from "react";
 import { ExpenseDetailsModal } from "@/pages/expenses/ExpenseDetailsModal";
 import { useCategories } from "@/hooks/queries";
+import { RepaymentModal } from "../common/RepaymentModal";
+import { displayName } from "@/utils/user";
 
 type Props = {
   settlement: Settlement | undefined;
@@ -22,13 +29,36 @@ const SettlementTab = ({ settlement, expense_group, expenses }: Props) => {
     null,
   );
   const [showExpenseDetailsModal, setShowExpenseDetailsModal] = useState(false);
+  const [showConfirmResolveModal, setShowConfirmResolveModal] = useState(false);
+  const [selectedTransaction, setSelectedTransaction] =
+    useState<TransactionWithUserInfo | null>(null);
 
   const selectedExpense =
     expenses.find((e) => e.id === selectedExpenseId) ?? null;
 
+  const isGroupAdmin = expense_group.members.some(
+    (m) => m.user_id === current_user?.id && m.role === "admin",
+  );
+
+  const showResolveBtn = (allowed_ids: number[]) => {
+    if (!current_user) return false;
+    if (current_user.role === "admin" || isGroupAdmin) {
+      return true;
+    }
+    return allowed_ids.some((id) => id === current_user.id);
+  };
+
   const toggleExpenseDetailsModal = (open: boolean, expense_id?: number) => {
     setSelectedExpenseId(expense_id ? expense_id : null);
     setShowExpenseDetailsModal(open);
+  };
+
+  const toggleConfirmResolve = (
+    open: boolean,
+    transaction: TransactionWithUserInfo | null,
+  ) => {
+    setSelectedTransaction(transaction ?? null);
+    setShowConfirmResolveModal(open);
   };
 
   return (
@@ -82,36 +112,38 @@ const SettlementTab = ({ settlement, expense_group, expenses }: Props) => {
           )}
 
           <div className={styles.settlementGrid}>
-            {settlement.members.map((m) => {
-              const member = expense_group.members.find(
-                (gm) => gm.user_id === m.user_id,
-              );
+            {settlement.members.map((member) => {
               return (
-                <div key={m.user_id} className={styles.settlementCard}>
+                <div key={member.user_id} className={styles.settlementCard}>
                   <div className={styles.settlementAvatar}>
-                    {member?.user?.username?.[0]?.toUpperCase() ?? "?"}
+                    {displayName(member)[0]?.toUpperCase() ?? "?"}
                   </div>
                   <div className={styles.settlementInfo}>
-                    <span className={styles.settlementName}>
-                      {member?.user?.username ?? m.user_id}
-                      {m.user_id === current_user?.id ? " (you)" : ""}
-                    </span>
+                    <div className={styles.settlementNameContainer}>
+                      <div className={styles.settlementName}>
+                        {displayName(member)}
+                        {member.user_id === current_user?.id ? " (you)" : ""}
+                      </div>
+                      <div className={styles.settlementUsername}>
+                        {member?.username ? "@" + member.username : ""}
+                      </div>
+                    </div>
                     <div className={styles.settlementRow}>
                       <span className={styles.settlementLabel}>Paid</span>
-                      <span>€{m.paid.toFixed(2)}</span>
+                      <span>€{member.paid.toFixed(2)}</span>
                     </div>
                     <div className={styles.settlementRow}>
                       <span className={styles.settlementLabel}>Should pay</span>
-                      <span>€{m.should_pay.toFixed(2)}</span>
+                      <span>€{member.should_pay.toFixed(2)}</span>
                     </div>
                   </div>
                   <span
                     className={`${styles.balance} ${
-                      m.balance >= 0 ? styles.positive : styles.negative
+                      member.balance >= 0 ? styles.positive : styles.negative
                     }`}
                   >
-                    {m.balance >= 0 ? "+" : "-"}€
-                    {Math.abs(m.balance).toFixed(2)}
+                    {member.balance >= 0 ? "+" : "-"}€
+                    {Math.abs(member.balance).toFixed(2)}
                   </span>
                 </div>
               );
@@ -123,28 +155,53 @@ const SettlementTab = ({ settlement, expense_group, expenses }: Props) => {
               <h3 className={styles.transactionTitle}>Who pays who</h3>
               <div className={styles.transactions}>
                 {settlement.transactions.map((t, i) => {
-                  const from = expense_group.members.find(
+                  const from = settlement.members.find(
                     (m) => m.user_id === t.from_user_id,
                   );
-                  const to = expense_group.members.find(
+                  const to = settlement.members.find(
                     (m) => m.user_id === t.to_user_id,
                   );
                   return (
                     <div key={i} className={styles.transaction}>
-                      <span className={styles.txName}>
-                        {from?.user?.username ?? t.from_user_id}
-                        {t.from_user_id === current_user?.id ? " (you)" : ""}
-                      </span>
+                      <div className={styles.txNameContainer}>
+                        <div className={styles.txName}>
+                          {displayName(from)}
+                          {t.from_user_id === current_user?.id ? " (you)" : ""}
+                        </div>
+                        <div className={styles.txUsername}>
+                          {from?.username ? "@" + from.username : ""}
+                        </div>
+                      </div>
                       <div className={styles.txArrow}>
                         <Icon icon="ph:arrow-right" width={16} height={16} />
                         <span className={styles.txAmount}>
                           €{t.amount.toFixed(2)}
                         </span>
                       </div>
-                      <span className={styles.txName}>
-                        {to?.user?.username ?? t.to_user_id}
-                        {t.to_user_id === current_user?.id ? " (you)" : ""}
-                      </span>
+                      <div className={styles.txNameContainer}>
+                        <div className={styles.txName}>
+                          {displayName(to)}
+                          {t.to_user_id === current_user?.id ? " (you)" : ""}
+                        </div>
+                        <div className={styles.txUsername}>
+                          {to?.username ? "@" + to.username : ""}
+                        </div>
+                      </div>
+                      {showResolveBtn([t.from_user_id, t.to_user_id]) && (
+                        <button
+                          title="Mark as paid"
+                          className={styles.resolveBtn}
+                          onClick={() =>
+                            toggleConfirmResolve(true, {
+                              ...t,
+                              from_user: from,
+                              to_user: to,
+                            })
+                          }
+                        >
+                          Resolve
+                        </button>
+                      )}
                     </div>
                   );
                 })}
@@ -157,7 +214,7 @@ const SettlementTab = ({ settlement, expense_group, expenses }: Props) => {
               <h3 className={styles.transactionTitle}>Awaiting split</h3>
               <div className={styles.pendingList}>
                 {settlement.pending_expenses.map((pe) => {
-                  const payee = expense_group.members.find(
+                  const payee = settlement.members.find(
                     (m) => m.user_id === pe.payee_id,
                   );
                   return (
@@ -171,7 +228,7 @@ const SettlementTab = ({ settlement, expense_group, expenses }: Props) => {
                           {pe.name || "Untitled expense"}
                         </span>
                         <span className={styles.pendingLabel}>
-                          Paid by {payee?.user?.username ?? pe.payee_id}
+                          Paid by {payee?.username ?? pe.payee_id}
                           {pe.payee_id === current_user?.id ? " (you)" : ""}
                         </span>
                       </div>
@@ -193,6 +250,14 @@ const SettlementTab = ({ settlement, expense_group, expenses }: Props) => {
           categories={categories}
           expense_group={expense_group}
           onClose={() => toggleExpenseDetailsModal(false)}
+        />
+      )}
+
+      {showConfirmResolveModal && selectedTransaction && (
+        <RepaymentModal
+          expense_group_id={expense_group.id}
+          transaction={selectedTransaction}
+          onClose={() => toggleConfirmResolve(false, null)}
         />
       )}
     </div>

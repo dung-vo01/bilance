@@ -77,6 +77,8 @@ export interface Settlement {
 export interface SettlementMember {
   user_id: number;
   username: string;
+  firstname: string | null;
+  lastname: string | null;
   should_pay: number;
   paid: number;
   balance: number;
@@ -87,6 +89,14 @@ export interface SettlementMember {
 export interface Transaction {
   from_user_id: number;
   to_user_id: number;
+  amount: number;
+}
+
+export interface TransactionWithUserInfo {
+  from_user_id: number;
+  from_user?: SettlementMember;
+  to_user_id: number;
+  to_user?: SettlementMember;
   amount: number;
 }
 
@@ -108,8 +118,8 @@ export interface Repayment {
 
 export interface NewRepaymentPayload {
   amount: number;
-  note?: string | null;
-  paid_at?: string;
+  note?: string;
+  paid_at?: string | null;
   from_user_id: number;
   to_user_id: number;
 }

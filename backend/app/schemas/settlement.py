@@ -4,6 +4,8 @@ from pydantic import BaseModel
 class MemberBalance(BaseModel):
     user_id: int
     username: str | None = None
+    firstname: str | None = None
+    lastname: str | None = None
     paid: float
     should_pay: float
     balance: float

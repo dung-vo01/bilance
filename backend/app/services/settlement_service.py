@@ -22,6 +22,8 @@ def _initiate_member_dict(user_id, user):
     return {
         "user_id": user_id,
         "username": (user.username if user else None),
+        "firstname": (user.firstname if user else None),
+        "lastname": (user.lastname if user else None),
         "paid": 0.0,
         "owes": 0.0,
         "sent": 0.0,
@@ -120,6 +122,8 @@ def compute_settlement(
             {
                 "user_id": uid,
                 "username": data["username"],
+                "firstname": data["firstname"],
+                "lastname": data["lastname"],
                 "paid": round(data["paid"], 2),
                 "should_pay": round(data["owes"], 2),
                 "balance": balance,

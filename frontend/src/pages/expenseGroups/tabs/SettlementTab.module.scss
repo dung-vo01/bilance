@@ -97,10 +97,22 @@
   gap: var(--space-1);
 }
 
+.settlementNameContainer {
+  margin-bottom: 0.5rem;
+}
+
 .settlementName {
   font-size: 0.9375rem;
   font-weight: 500;
   color: var(--color-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.settlementUsername {
+  font-size: 0.8125rem;
+  color: var(--color-text-secondary);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -137,9 +149,10 @@
 }
 
 .transaction {
-  display: flex;
+  display: grid;
+  grid-template-columns: 30% 30% 30% auto;
   align-items: center;
-  justify-content: space-between;
+  // justify-content: space-between;
   padding: var(--space-4) var(--space-5);
 
   &:not(:last-child) {
@@ -152,16 +165,18 @@
   font-weight: 500;
   color: var(--color-text);
   min-width: 100px;
+}
 
-  &:last-child {
-    text-align: right;
-  }
+.txUsername {
+  font-size: 0.8125rem;
+  color: var(--color-text-secondary);
+  min-width: 100px;
 }
 
 .txArrow {
   display: flex;
   flex-direction: column;
-  align-items: center;
+  // align-items: center;
   gap: 2px;
   color: var(--color-text-secondary);
 }
@@ -170,6 +185,26 @@
   font-size: 0.875rem;
   font-weight: 600;
   color: var(--color-danger);
+}
+
+.resolveBtn {
+  margin-left: auto;
+  cursor: pointer;
+  width: fit-content;
+  color: var(--color-text-secondary);
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  transition: all var(--transition);
+
+  &:hover {
+    background: var(--color-bg-tertiary);
+    color: var(--color-text);
+    // border-color: var(--color-text);
+  }
 }
 
 .pendingStat {
