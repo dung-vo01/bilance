@@ -28,7 +28,10 @@ custom split ratios, invites, and a settlement view showing who owes who.
 - Expense groups - create, invite by username, accept/decline, admin
   controls
 - Per-expense split ratios, independent of a group's default ratio
-- Settlement view - who owes who, and by how much
+- Settlement view - who owes who, and by how much, with expenses that are
+  still awaiting a split shown separately
+- Repayments - resolve a "who pays who" entry once it's paid, undo it with a
+  note if it wasn't, and keep a full payment history
 - Global and per-group expense categories
 - Contacts/friends system - send, accept, or decline friend requests; only
   contacts (or people you already share a group with) can be invited to a
