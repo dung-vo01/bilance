@@ -18,6 +18,7 @@ from app.models import (
     GroupRole,
     User,
 )
+from app.models.repayment import Repayment
 
 COMPANION_USERNAME = "alex.demo"
 
@@ -116,12 +117,56 @@ async def _seed_sample_data(db: AsyncSession, guest: User, companion: User) -> N
                 )
             )
 
+    # Pending expense: no shares yet, so it shows up under "Awaiting split".
+    db.add(
+        Expense(
+            name="Airport taxi",
+            value=24.00,
+            payee_id=companion.id,
+            created_by_id=guest.id,
+            expense_group_id=group.id,
+            paid_at=now - timedelta(days=1),
+        )
+    )
+
+    # Repayments. Alex owes the guest 100.00 for the split expenses above:
+    # 40.00 is already resolved, so "Who pays who" still shows 60.00 the guest
+    # can resolve. A second, undone repayment fills the history with an
+    # Undo example that no longer counts towards the balances.
+    db.add_all(
+        [
+            Repayment(
+                amount=40.00,
+                note="Cash for the hotel",
+                paid_at=now - timedelta(days=2),
+                expense_group_id=group.id,
+                from_user_id=companion.id,
+                to_user_id=guest.id,
+                created_by_id=guest.id,
+            ),
+            Repayment(
+                amount=30.00,
+                note="Bank transfer",
+                paid_at=now - timedelta(days=3),
+                expense_group_id=group.id,
+                from_user_id=companion.id,
+                to_user_id=guest.id,
+                created_by_id=guest.id,
+                is_deleted=True,
+                deleted_at=now - timedelta(days=2, hours=12),
+                deleted_by_id=guest.id,
+                deleted_note="Transfer never arrived",
+            ),
+        ]
+    )
+
 
 async def create_guest(db: AsyncSession) -> tuple[User, str, str]:
     companion = await _get_or_create_companion(db)
 
     guest = User(
         username=f"guest_{secrets.token_hex(4)}",
+        firstname="Guest",  # shown in settlement/history instead of "guest_ab12cd34"
         email=None,
         password_hash=await hash_password(secrets.token_urlsafe(32)),
         is_guest=True,
@@ -146,9 +191,7 @@ async def _delete_guest_ids(db: AsyncSession, user_ids: list[int]) -> None:
     group_ids = (
         (
             await db.execute(
-                select(ExpenseGroup.id).where(
-                    ExpenseGroup.created_by_id.in_(user_ids)
-                )
+                select(ExpenseGroup.id).where(ExpenseGroup.created_by_id.in_(user_ids))
             )
         )
         .scalars()

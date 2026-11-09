@@ -45,6 +45,38 @@ async def test_guest_login_seeds_sample_data(client, db_session):
 
 
 @pytest.mark.asyncio
+async def test_guest_login_seeds_repayments_and_pending_expense(client, db_session):
+    response = await client.post("/api/auth/guest")
+    data = response.json()["data"]
+    guest_id = data["user"]["id"]
+    headers = {"Authorization": f"Bearer {data['access_token']}"}
+
+    group_result = await db_session.execute(
+        select(ExpenseGroup).where(ExpenseGroup.created_by_id == guest_id)
+    )
+    group_id = group_result.scalar_one().id
+
+    repayments_resp = await client.get(
+        f"/api/expense-groups/{group_id}/repayments", headers=headers
+    )
+    assert repayments_resp.status_code == 200
+    repayments = repayments_resp.json()["data"]
+    assert [r["is_deleted"] for r in repayments] == [False, True]
+    assert repayments[1]["deleted_note"] is not None
+
+    settlement_resp = await client.get(
+        f"/api/expense-groups/{group_id}/settlement", headers=headers
+    )
+    settlement = settlement_resp.json()["data"]
+    assert len(settlement["pending_expenses"]) == 1
+    # 100 owed for the split expenses - 40 resolved; the undone 30 is ignored.
+    assert len(settlement["transactions"]) == 1
+    transaction = settlement["transactions"][0]
+    assert transaction["to_user_id"] == guest_id
+    assert transaction["amount"] == pytest.approx(60.00)
+
+
+@pytest.mark.asyncio
 async def test_guest_login_reuses_companion_account(client, db_session):
     await client.post("/api/auth/guest")
     await client.post("/api/auth/guest")
