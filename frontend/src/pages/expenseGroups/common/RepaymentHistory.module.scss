@@ -1,0 +1,118 @@
+@use "@/styles/variables" as *;
+
+.repaymentSection {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.toggle {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: var(--color-text);
+  cursor: pointer;
+
+  svg {
+    color: var(--color-text-tertiary);
+  }
+  &:hover svg {
+    color: var(--color-text);
+  }
+}
+
+.repaymentList {
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+
+.repaymentItem {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-4) var(--space-5);
+
+  &:not(:last-child) {
+    border-bottom: 1px solid var(--color-border);
+  }
+  &.undone {
+    opacity: 0.75;
+  }
+}
+
+.repaymentInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.repaymentUsernames {
+  font-size: 0.9375rem;
+  color: var(--color-text);
+}
+
+.repaymentUsername {
+  font-weight: 600;
+}
+
+.repaymentMeta {
+  font-size: 0.8125rem;
+  color: var(--color-text-tertiary);
+}
+
+.repaymentUndoneMeta {
+  font-size: 0.8125rem;
+  color: var(--color-text-tertiary);
+}
+
+.repaymentAmountAndActions {
+  display: flex;
+  align-items: center;
+  margin-left: 0.5rem;
+
+  @include mobile {
+    flex-direction: column-reverse;
+    gap: 4px;
+    align-items: flex-end;
+  }
+}
+
+.repaymentAmount {
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: var(--color-text);
+
+  &.undone {
+    text-decoration: line-through;
+  }
+}
+
+.repaymentActions {
+  margin-right: 0.5rem;
+  width: 5rem;
+  @include mobile {
+    margin: 0;
+  }
+}
+
+.undoBtn {
+  width: inherit;
+  cursor: pointer;
+  color: var(--color-text-secondary);
+  display: flex;
+  justify-content: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  transition: all var(--transition);
+
+  &:hover {
+    background: var(--color-bg-tertiary);
+    color: var(--color-text);
+  }
+}

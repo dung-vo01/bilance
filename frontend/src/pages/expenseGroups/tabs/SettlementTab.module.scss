@@ -3,19 +3,30 @@
 .section {
   display: flex;
   flex-direction: column;
-  gap: var(--space-4);
+  gap: var(--space-8);
 }
 
-.sectionHeader {
+.block {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
+  flex-direction: column;
+  gap: var(--space-3);
 }
 
-.sectionTitle {
-  font-size: 1rem;
-  font-weight: 600;
-  color: var(--color-text);
+.summary {
+  font-size: 0.875rem;
+  color: var(--color-text-secondary);
+
+  strong {
+    font-weight: 600;
+    color: var(--color-text);
+  }
+}
+
+.summaryPending {
+  color: var(--color-warning);
+  strong {
+    color: inherit;
+  }
 }
 
 .empty {
@@ -42,21 +53,6 @@
   to {
     transform: rotate(360deg);
   }
-}
-
-.settlementStats {
-  display: flex;
-  gap: var(--space-3);
-}
-
-.settlementStat {
-  background: var(--color-bg);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
-  padding: var(--space-4) var(--space-5);
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
 }
 
 .settlementGrid {
@@ -135,6 +131,10 @@
   flex-shrink: 0;
 }
 
+.neutral {
+  color: var(--color-text-secondary);
+}
+
 .transactionTitle {
   font-size: 0.9375rem;
   font-weight: 600;
@@ -149,51 +149,63 @@
 }
 
 .transaction {
-  display: grid;
-  grid-template-columns: 30% 30% 30% auto;
+  display: flex;
   align-items: center;
-  // justify-content: space-between;
+  justify-content: space-between;
   padding: var(--space-4) var(--space-5);
-
   &:not(:last-child) {
     border-bottom: 1px solid var(--color-border);
   }
 }
 
-.txName {
-  font-size: 0.9375rem;
-  font-weight: 500;
-  color: var(--color-text);
-  min-width: 100px;
-}
-
-.txUsername {
-  font-size: 0.8125rem;
-  color: var(--color-text-secondary);
-  min-width: 100px;
-}
-
-.txArrow {
+.txInfo {
   display: flex;
   flex-direction: column;
-  // align-items: center;
   gap: 2px;
+  min-width: 0;
+}
+.txPeople {
+  font-size: 0.9375rem;
+  color: var(--color-text);
+}
+.txName {
+  font-weight: 600;
+}
+.txMeta {
+  font-size: 0.8125rem;
   color: var(--color-text-secondary);
 }
 
+.txRight {
+  display: flex;
+  align-items: center;
+  margin-left: 0.5rem;
+  @include mobile {
+    flex-direction: column-reverse;
+    gap: 4px;
+    align-items: flex-end;
+  }
+}
+.txActions {
+  margin-right: 0.5rem;
+  width: 5rem;
+  @include mobile {
+    margin: 0;
+  }
+}
 .txAmount {
-  font-size: 0.875rem;
+  font-size: 0.9375rem;
   font-weight: 600;
-  color: var(--color-danger);
+  color: var(--color-text);
 }
 
 .resolveBtn {
-  margin-left: auto;
   cursor: pointer;
-  width: fit-content;
+  width: 100%;
   color: var(--color-text-secondary);
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: var(--space-2);
   padding: var(--space-2) var(--space-3);
   border: 1px solid var(--color-border);
@@ -205,10 +217,6 @@
     color: var(--color-text);
     // border-color: var(--color-text);
   }
-}
-
-.pendingStat {
-  border-color: var(--color-warning);
 }
 
 .pendingBanner {
@@ -271,4 +279,19 @@
   font-size: 0.9375rem;
   font-weight: 600;
   color: var(--color-text);
+}
+
+.allSettled {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-4) var(--space-5);
+  border: 1px dashed var(--color-border);
+  border-radius: var(--radius-lg);
+  color: var(--color-text-secondary);
+  font-size: 0.9375rem;
+
+  svg {
+    color: var(--color-primary);
+  }
 }

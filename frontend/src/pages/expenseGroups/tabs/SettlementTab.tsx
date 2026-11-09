@@ -12,6 +12,7 @@ import { ExpenseDetailsModal } from "@/pages/expenses/ExpenseDetailsModal";
 import { useCategories } from "@/hooks/queries";
 import { RepaymentModal } from "../common/RepaymentModal";
 import { displayName } from "@/utils/user";
+import RepaymentHistory from "../common/RepaymentHistory";
 
 type Props = {
   settlement: Settlement | undefined;
@@ -63,8 +64,6 @@ const SettlementTab = ({ settlement, expense_group, expenses }: Props) => {
 
   return (
     <div className={styles.section}>
-      <h2 className={styles.sectionTitle}>Settlement</h2>
-
       {!settlement ? (
         <div className={styles.empty}>
           <Icon
@@ -76,85 +75,81 @@ const SettlementTab = ({ settlement, expense_group, expenses }: Props) => {
         </div>
       ) : (
         <>
-          <div className={styles.settlementStats}>
-            <div className={styles.settlementStat}>
-              <span className={styles.statLabel}>Total spent</span>
-              <span className={styles.statValue}>
-                €{settlement.total.toFixed(2)}
-              </span>
+          <div className={styles.block}>
+            <p className={styles.summary}>
+              <strong>€{settlement.total.toFixed(2)}</strong> total
+              {settlement.pending_total > 0 && (
+                <>
+                  {" · "}
+                  <span className={styles.summaryPending}>
+                    <strong>€{settlement.pending_total.toFixed(2)}</strong>{" "}
+                    awaiting split
+                  </span>
+                </>
+              )}
+            </p>
+
+            <div className={styles.settlementGrid}>
+              {settlement.members.map((member) => {
+                const isZero = Math.abs(member.balance) < 0.005;
+                const sign = isZero ? "" : member.balance > 0 ? "+" : "-";
+                return (
+                  <div key={member.user_id} className={styles.settlementCard}>
+                    <div className={styles.settlementAvatar}>
+                      {displayName(member)[0]?.toUpperCase() ?? "?"}
+                    </div>
+                    <div className={styles.settlementInfo}>
+                      <div className={styles.settlementNameContainer}>
+                        <div className={styles.settlementName}>
+                          {displayName(member)}
+                          {member.user_id === current_user?.id ? " (you)" : ""}
+                        </div>
+                        <div className={styles.settlementUsername}>
+                          {member?.username ? "@" + member.username : ""}
+                        </div>
+                      </div>
+                      <div className={styles.settlementRow}>
+                        <span className={styles.settlementLabel}>Paid</span>
+                        <span>€{member.paid.toFixed(2)}</span>
+                      </div>
+                      <div className={styles.settlementRow}>
+                        <span className={styles.settlementLabel}>
+                          Should pay
+                        </span>
+                        <span>€{member.should_pay.toFixed(2)}</span>
+                      </div>
+                    </div>
+                    <span
+                      className={`${styles.balance} ${
+                        isZero
+                          ? styles.neutral
+                          : member.balance > 0
+                            ? styles.positive
+                            : styles.negative
+                      }`}
+                    >
+                      {sign}€{Math.abs(member.balance).toFixed(2)}
+                    </span>
+                  </div>
+                );
+              })}
             </div>
-            <div className={styles.settlementStat}>
-              <span className={styles.statLabel}>Settled</span>
-              <span className={styles.statValue}>
-                €{settlement.settled_total.toFixed(2)}
-              </span>
-            </div>
-            {settlement.pending_total > 0 && (
-              <div className={`${styles.settlementStat} ${styles.pendingStat}`}>
-                <span className={styles.statLabel}>Pending split</span>
-                <span className={styles.statValue}>
-                  €{settlement.pending_total.toFixed(2)}
-                </span>
+          </div>
+
+          {settlement.transactions.length === 0 &&
+            settlement.pending_expenses.length === 0 &&
+            settlement.total > 0 && (
+              <div className={styles.allSettled}>
+                <Icon icon="ph:check-circle" width={18} height={18} />
+                <span>All settled up</span>
               </div>
             )}
-          </div>
-
-          {settlement.pending_expenses.length > 0 && (
-            <div className={styles.pendingBanner}>
-              <Icon icon="ph:warning-circle" width={18} height={18} />
-              <span>
-                {settlement.pending_expenses.length} expense
-                {settlement.pending_expenses.length > 1 ? "s" : ""} need
-                {settlement.pending_expenses.length > 1 ? "" : "s"} a split
-                ratio before they're included in balances.
-              </span>
-            </div>
-          )}
-
-          <div className={styles.settlementGrid}>
-            {settlement.members.map((member) => {
-              return (
-                <div key={member.user_id} className={styles.settlementCard}>
-                  <div className={styles.settlementAvatar}>
-                    {displayName(member)[0]?.toUpperCase() ?? "?"}
-                  </div>
-                  <div className={styles.settlementInfo}>
-                    <div className={styles.settlementNameContainer}>
-                      <div className={styles.settlementName}>
-                        {displayName(member)}
-                        {member.user_id === current_user?.id ? " (you)" : ""}
-                      </div>
-                      <div className={styles.settlementUsername}>
-                        {member?.username ? "@" + member.username : ""}
-                      </div>
-                    </div>
-                    <div className={styles.settlementRow}>
-                      <span className={styles.settlementLabel}>Paid</span>
-                      <span>€{member.paid.toFixed(2)}</span>
-                    </div>
-                    <div className={styles.settlementRow}>
-                      <span className={styles.settlementLabel}>Should pay</span>
-                      <span>€{member.should_pay.toFixed(2)}</span>
-                    </div>
-                  </div>
-                  <span
-                    className={`${styles.balance} ${
-                      member.balance >= 0 ? styles.positive : styles.negative
-                    }`}
-                  >
-                    {member.balance >= 0 ? "+" : "-"}€
-                    {Math.abs(member.balance).toFixed(2)}
-                  </span>
-                </div>
-              );
-            })}
-          </div>
 
           {settlement.transactions.length > 0 && (
-            <>
+            <div className={styles.block}>
               <h3 className={styles.transactionTitle}>Who pays who</h3>
               <div className={styles.transactions}>
-                {settlement.transactions.map((t, i) => {
+                {settlement.transactions.map((t) => {
                   const from = settlement.members.find(
                     (m) => m.user_id === t.from_user_id,
                   );
@@ -162,56 +157,65 @@ const SettlementTab = ({ settlement, expense_group, expenses }: Props) => {
                     (m) => m.user_id === t.to_user_id,
                   );
                   return (
-                    <div key={i} className={styles.transaction}>
-                      <div className={styles.txNameContainer}>
-                        <div className={styles.txName}>
-                          {displayName(from)}
-                          {t.from_user_id === current_user?.id ? " (you)" : ""}
-                        </div>
-                        <div className={styles.txUsername}>
-                          {from?.username ? "@" + from.username : ""}
+                    <div
+                      key={`${t.from_user_id}-${t.to_user_id}`}
+                      className={styles.transaction}
+                    >
+                      <div className={styles.txInfo}>
+                        <div className={styles.txPeople}>
+                          <span className={styles.txName}>
+                            {displayName(from)}
+                            {t.from_user_id === current_user?.id
+                              ? " (you)"
+                              : ""}
+                          </span>{" "}
+                          →{" "}
+                          <span className={styles.txName}>
+                            {displayName(to)}
+                            {t.to_user_id === current_user?.id ? " (you)" : ""}
+                          </span>
                         </div>
                       </div>
-                      <div className={styles.txArrow}>
-                        <Icon icon="ph:arrow-right" width={16} height={16} />
+                      <div className={styles.txRight}>
+                        <div className={styles.txActions}>
+                          {showResolveBtn([t.from_user_id, t.to_user_id]) && (
+                            <button
+                              title="Mark as paid"
+                              className={styles.resolveBtn}
+                              onClick={() =>
+                                toggleConfirmResolve(true, {
+                                  ...t,
+                                  from_user: from,
+                                  to_user: to,
+                                })
+                              }
+                            >
+                              Resolve
+                            </button>
+                          )}
+                        </div>
                         <span className={styles.txAmount}>
                           €{t.amount.toFixed(2)}
                         </span>
                       </div>
-                      <div className={styles.txNameContainer}>
-                        <div className={styles.txName}>
-                          {displayName(to)}
-                          {t.to_user_id === current_user?.id ? " (you)" : ""}
-                        </div>
-                        <div className={styles.txUsername}>
-                          {to?.username ? "@" + to.username : ""}
-                        </div>
-                      </div>
-                      {showResolveBtn([t.from_user_id, t.to_user_id]) && (
-                        <button
-                          title="Mark as paid"
-                          className={styles.resolveBtn}
-                          onClick={() =>
-                            toggleConfirmResolve(true, {
-                              ...t,
-                              from_user: from,
-                              to_user: to,
-                            })
-                          }
-                        >
-                          Resolve
-                        </button>
-                      )}
                     </div>
                   );
                 })}
               </div>
-            </>
+            </div>
           )}
 
           {settlement.pending_expenses.length > 0 && (
-            <>
-              <h3 className={styles.transactionTitle}>Awaiting split</h3>
+            <div className={styles.block}>
+              <div className={styles.pendingBanner}>
+                <Icon icon="ph:warning-circle" width={18} height={18} />
+                <span>
+                  {settlement.pending_expenses.length} expense
+                  {settlement.pending_expenses.length > 1 ? "s" : ""} need
+                  {settlement.pending_expenses.length > 1 ? "" : "s"} a split
+                  ratio before they count in balances.
+                </span>
+              </div>
               <div className={styles.pendingList}>
                 {settlement.pending_expenses.map((pe) => {
                   const payee = settlement.members.find(
@@ -239,8 +243,9 @@ const SettlementTab = ({ settlement, expense_group, expenses }: Props) => {
                   );
                 })}
               </div>
-            </>
+            </div>
           )}
+          <RepaymentHistory expense_group={expense_group} />
         </>
       )}
 
