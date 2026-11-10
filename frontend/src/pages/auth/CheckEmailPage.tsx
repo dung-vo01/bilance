@@ -4,16 +4,27 @@ import { Icon } from "@iconify/react";
 import { AuthLayout } from "@/components/auth/AuthLayout";
 import { useResendVerification } from "@/hooks/queries";
 import styles from "./Auth.module.scss";
+import { getErrorMessage } from "@/utils/error";
 
 export const CheckEmailPage = () => {
   const location = useLocation();
   const email = (location.state as { email?: string } | null)?.email;
   const [resent, setResent] = useState(false);
+  const [error, setError] = useState("");
+
   const { mutate, isPending } = useResendVerification();
 
   const handleResend = () => {
+    setError("");
     if (!email) return;
-    mutate(email, { onSuccess: () => setResent(true) });
+    mutate(email, {
+      onSuccess: () => setResent(true),
+      onError: (err) => {
+        setError(
+          getErrorMessage(err, "Couldn't resend email. Please try again."),
+        );
+      },
+    });
   };
 
   return (
@@ -30,6 +41,13 @@ export const CheckEmailPage = () => {
             "We sent a verification link to your email. Click it to activate your account."
           )}
         </p>
+
+        {error && (
+          <div className={styles.error}>
+            <Icon icon="ph:warning-circle" width={16} height={16} />
+            {error}
+          </div>
+        )}
 
         {email && (
           <button

@@ -8,6 +8,7 @@ import {
   useSendContactRequest,
 } from "@/hooks/queries";
 import { useState } from "react";
+import { getUserLookupErrorMessage } from "@/utils/error";
 
 type InviteEntry = {
   username: string;
@@ -62,9 +63,12 @@ const InviteMemberModal = ({ expense_group, onClose }: Props) => {
         setContactSent(true);
         setContactUsername("");
       },
-      onError: () =>
+      onError: (err) =>
         setContactError(
-          "Couldn't send that request — check the username and try again.",
+          getUserLookupErrorMessage(
+            err,
+            "Couldn't send friend request. Check the username and try again.",
+          ),
         ),
     });
   };
@@ -126,6 +130,8 @@ const InviteMemberModal = ({ expense_group, onClose }: Props) => {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    setError("");
+
     if (invites.length === 0) {
       setError("Add at least one member to invite.");
       return;
@@ -148,7 +154,13 @@ const InviteMemberModal = ({ expense_group, onClose }: Props) => {
           setSuccess(true);
           setTimeout(onClose, 1800);
         },
-        onError: () => setError("Failed to invite members. Please try again."),
+        onError: (err) =>
+          setError(
+            getUserLookupErrorMessage(
+              err,
+              "Failed to invite members. Please try again.",
+            ),
+          ),
       },
     );
   };

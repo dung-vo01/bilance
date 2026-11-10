@@ -13,6 +13,7 @@ import {
 import { ConfirmModal } from "@/components/ui/ConfirmModal";
 import type { ContactDetail } from "@/types";
 import styles from "./ContactsPage.module.scss";
+import { getUserLookupErrorMessage } from "@/utils/error";
 
 const getFullName = (
   person: { firstname?: string | null; lastname?: string | null } | null,
@@ -57,9 +58,12 @@ export const ContactsPage = () => {
         setAddSuccess(true);
         setAddUsername("");
       },
-      onError: () =>
+      onError: (err) =>
         setAddError(
-          "Couldn't send that request — check the username and try again.",
+          getUserLookupErrorMessage(
+            err,
+            "Couldn't send friend request. Check the username and try again.",
+          ),
         ),
     });
   };

@@ -10,6 +10,7 @@ import { useGuestLogin, useResendVerification } from "@/hooks/queries";
 import { useSlowLoading } from "@/hooks/useSlowLoading";
 import type { ApiError } from "@/types";
 import styles from "./Auth.module.scss";
+import { getErrorMessage } from "@/utils/error";
 
 export const LoginPage = () => {
   const navigate = useNavigate();
@@ -50,11 +51,30 @@ export const LoginPage = () => {
   };
 
   const handleResend = () => {
-    resendVerification(form.email, { onSuccess: () => setResent(true) });
+    setError("");
+    resendVerification(form.email, {
+      onSuccess: () => setResent(true),
+      onError: (err) =>
+        setError(
+          getErrorMessage(err, "Couldn't resend email. Please try again."),
+        ),
+    });
   };
 
   const handleGuestLogin = () => {
-    guestLogin(undefined, { onSuccess: () => navigate("/dashboard") });
+    setError("");
+    setUnverified(false);
+    guestLogin(undefined, {
+      onSuccess: () => navigate("/dashboard"),
+      onError: (err) => {
+        setError(
+          getErrorMessage(
+            err,
+            "Couldn't start a guest session. Please try again.",
+          ),
+        );
+      },
+    });
   };
 
   const isSlow = useSlowLoading(isPending);

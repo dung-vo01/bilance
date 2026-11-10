@@ -4,14 +4,27 @@ import { Icon } from "@iconify/react";
 import { AuthLayout } from "@/components/auth/AuthLayout";
 import { useForgotPassword } from "@/hooks/queries";
 import styles from "./Auth.module.scss";
+import { getErrorMessage } from "@/utils/error";
 
 export const ForgotPasswordPage = () => {
   const [email, setEmail] = useState("");
+  const [error, setError] = useState("");
+
   const { mutate, isPending, isSuccess } = useForgotPassword();
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    mutate(email);
+    setError("");
+    mutate(email, {
+      onError: (err) => {
+        setError(
+          getErrorMessage(
+            err,
+            "Couldn't send reset password request. Please try again.",
+          ),
+        );
+      },
+    });
   };
 
   if (isSuccess) {
@@ -38,6 +51,13 @@ export const ForgotPasswordPage = () => {
         </p>
 
         <form onSubmit={handleSubmit} className={styles.form}>
+          {error && (
+            <div className={styles.error}>
+              <Icon icon="ph:warning-circle" width={16} height={16} />
+              {error}
+            </div>
+          )}
+
           <div className={styles.field}>
             <label className={styles.label}>Email</label>
             <div className={styles.inputWrap}>
