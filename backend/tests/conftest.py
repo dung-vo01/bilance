@@ -1,5 +1,4 @@
 from datetime import datetime
-from typing import Any
 
 import pytest
 import pytest_asyncio
@@ -7,6 +6,7 @@ from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 
 from app import models  # noqa: F401 -- populate Base.metadata
+from app.core.limiter import limiter
 from app.core.config import settings
 from app.core.security import create_access_token, hash_password
 from app.db.base import Base
@@ -55,6 +55,13 @@ async def client(db_session):
     async with AsyncClient(transport=transport, base_url="http://test") as ac:
         yield ac
     app.dependency_overrides.clear()
+
+
+@pytest.fixture(autouse=True)
+def _disable_rate_limiting():
+    limiter.enabled = False
+    yield
+    limiter.enabled = True
 
 
 @pytest_asyncio.fixture

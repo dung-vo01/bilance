@@ -119,3 +119,41 @@ app is running.
 | GET              | /api/contacts/requests/sent                                  | Your outgoing pending friend requests                                                                                                                                                                                                                |
 | DELETE           | /api/contacts/requests/{notification_id}                     | Cancel a friend request you sent                                                                                                                                                                                                                     |
 | DELETE           | /api/contacts/{user_id}                                      | Unfriend - removes the contact relationship both ways (doesn't affect shared group membership)                                                                                                                                                       |
+
+## Rate limiting
+
+Requests are rate limited per client IP with
+[slowapi](https://github.com/laurentS/slowapi). Every route gets a default of
+120 requests per minute (via `SlowAPIMiddleware`), and the abuse-prone routes
+have stricter limits of their own, which replace the default for that route:
+
+| Route                                    | Limit     | Why                                       |
+| ---------------------------------------- | --------- | ----------------------------------------- |
+| POST /api/auth/login                     | 10/minute | Password guessing (each try costs bcrypt) |
+| POST /api/auth/guest                     | 10/hour   | Each call creates a user and seeds data   |
+| POST /api/auth/register                  | 5/hour    | Sends a verification email                |
+| POST /api/auth/resend-verification       | 5/hour    | Sends an email                            |
+| POST /api/auth/forgot-password           | 5/hour    | Sends an email                            |
+| POST /api/auth/reset-password            | 5/hour    | Token guessing                            |
+| POST /api/contacts/requests              | 20/hour   | Sends an email                            |
+| POST /api/expense-groups/{id}/invite     | 20/hour   | Sends an email                            |
+| GET /health                              | exempt    | Used by the host's health checks          |
+
+Each route has its own counter. When a limit is hit the API returns `429` with
+the usual `{"success": false, "error": ...}` body and a `Retry-After` header
+(seconds).
+
+- **Storage** is set with `RATE_LIMIT_STORAGE_URI`. The default, `memory://`,
+  keeps counters inside the process, which is correct for a single instance
+  (counters reset on restart). If you run more than one instance or worker, point
+  it at Redis (`redis://host:6379`, plus the `redis` package) so they share
+  counts.
+- **Behind a proxy** (Render, etc.) the client IP comes from `X-Forwarded-For`.
+  The `Procfile` starts uvicorn with `--forwarded-allow-ips="*"`; without it every
+  user would appear to come from the proxy's IP and share one counter. Only use
+  `"*"` when the app is reachable only through the host's proxy.
+- **Middleware order** in `main.py` matters: CORS must be the outermost layer so
+  that 429 responses still carry CORS headers and browsers show the message
+  instead of a CORS error.
+- **Tests** turn the limiter off globally (an autouse fixture in
+  `tests/conftest.py`); `tests/test_rate_limit.py` re-enables it per test.

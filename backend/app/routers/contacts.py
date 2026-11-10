@@ -1,6 +1,7 @@
-from fastapi import APIRouter, BackgroundTasks, Depends
+from fastapi import APIRouter, BackgroundTasks, Depends, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.limiter import limiter
 from app.core.deps import get_current_user_id
 from app.db.session import get_db
 from app.schemas.common import envelope
@@ -43,7 +44,9 @@ async def list_sent_requests(
 
 
 @router.post("/requests", status_code=201)
+@limiter.limit("20/hour")
 async def send_contact_request(
+    request: Request,
     data: SendContactRequestPayload,
     background_tasks: BackgroundTasks,
     user_id: int = Depends(get_current_user_id),

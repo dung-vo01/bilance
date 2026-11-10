@@ -1,6 +1,7 @@
-from fastapi import APIRouter, BackgroundTasks, Depends, Query
+from fastapi import APIRouter, BackgroundTasks, Depends, Query, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.limiter import limiter
 from app.core.deps import get_current_user_id
 from app.db.session import get_db
 from app.models.notification import NotificationType
@@ -79,7 +80,9 @@ async def delete_group(
 
 
 @router.post("/{expense_group_id}/invite")
+@limiter.limit("20/hour")
 async def invite_member(
+    request: Request,
     expense_group_id: int,
     data: InviteRequest,
     background_tasks: BackgroundTasks,

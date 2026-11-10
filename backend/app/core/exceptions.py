@@ -3,6 +3,7 @@ import logging
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
+from slowapi.errors import RateLimitExceeded
 
 logger = logging.getLogger("app.error")
 
@@ -73,3 +74,18 @@ def register_exception_handlers(app: FastAPI) -> None:
             status_code=500,
             content={"success": False, "error": "Internal server error"},
         )
+
+    # inside register_exception_handlers(app)
+    @app.exception_handler(RateLimitExceeded)
+    def rate_limit_handler(request: Request, exc: RateLimitExceeded):
+        response = JSONResponse(
+            status_code=429,
+            content={
+                "success": False,
+                "error": "Too many requests, please try again later",
+            },
+        )
+        # Tell clients how long to wait: the length of the limit's window
+        # (e.g. 3600 for "10/hour")
+        response.headers["Retry-After"] = str(exc.limit.limit.get_expiry())
+        return response

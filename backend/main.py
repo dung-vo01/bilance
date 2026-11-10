@@ -1,14 +1,21 @@
 from fastapi import FastAPI
+from slowapi.middleware import SlowAPIMiddleware
 from starlette.middleware.cors import CORSMiddleware
+
 
 from app.core.config import settings
 from app.core.exceptions import register_exception_handlers
 from app.core.logging import RequestLoggingMiddleware, configure_logging
+from app.core.limiter import limiter
 
 configure_logging(settings.LOG_LEVEL)
 
 app = FastAPI(title="Bilance API")
 
+app.state.limiter = limiter
+
+app.add_middleware(SlowAPIMiddleware)
+app.add_middleware(RequestLoggingMiddleware)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origins_list,
@@ -16,7 +23,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-app.add_middleware(RequestLoggingMiddleware)
 
 register_exception_handlers(app)
 

@@ -28,6 +28,7 @@ class Settings(BaseSettings):
     EMAIL_VERIFICATION_EXPIRE_HOURS: int = 24
     PASSWORD_RESET_EXPIRE_MINUTES: int = 30
     GUEST_ACCOUNT_TTL_HOURS: int = 24
+    RATE_LIMIT_STORAGE_URI: str = "memory://"
 
     @property
     def cors_origins_list(self) -> list[str]:

@@ -32,6 +32,8 @@ custom split ratios, invites, and a settlement view showing who owes who.
   still awaiting a split shown separately
 - Repayments - resolve a "who pays who" entry once it's paid, undo it with a
   note if it wasn't, and keep a full payment history
+- Per-IP rate limiting on the API, with stricter limits on login, signup and
+  email-sending routes
 - Global and per-group expense categories
 - Contacts/friends system - send, accept, or decline friend requests; only
   contacts (or people you already share a group with) can be invited to a

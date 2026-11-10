@@ -1,6 +1,7 @@
-from fastapi import APIRouter, BackgroundTasks, Depends
+from fastapi import APIRouter, BackgroundTasks, Depends, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.limiter import limiter
 from app.core.deps import get_current_user, get_current_user_id, get_refresh_user_id
 from app.core.security import create_access_token, create_refresh_token
 from app.db.session import get_db
@@ -19,7 +20,9 @@ router = APIRouter()
 
 
 @router.post("/register", status_code=201)
+@limiter.limit("5/hour")
 async def register(
+    request: Request,
     data: RegisterRequest,
     background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
@@ -43,7 +46,9 @@ async def verify_email(token: str, db: AsyncSession = Depends(get_db)):
 
 
 @router.post("/resend-verification")
+@limiter.limit("5/hour")
 async def resend_verification(
+    request: Request,
     data: ForgotPasswordRequest,
     background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
@@ -66,7 +71,9 @@ async def resend_verification(
 
 
 @router.post("/forgot-password")
+@limiter.limit("5/hour")
 async def forgot_password(
+    request: Request,
     data: ForgotPasswordRequest,
     background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
@@ -87,16 +94,20 @@ async def forgot_password(
 
 
 @router.post("/reset-password")
+@limiter.limit("5/hour")
 async def reset_password(
-    data: ResetPasswordRequest, db: AsyncSession = Depends(get_db)
+    request: Request, data: ResetPasswordRequest, db: AsyncSession = Depends(get_db)
 ):
     await auth_service.reset_password(db, data.token, data.new_password)
     return envelope({"message": "Password has been reset"})
 
 
 @router.post("/guest")
+@limiter.limit("10/hour")
 async def guest_login(
-    background_tasks: BackgroundTasks, db: AsyncSession = Depends(get_db)
+    request: Request,
+    background_tasks: BackgroundTasks,
+    db: AsyncSession = Depends(get_db),
 ):
     guest, access_token, refresh_token = await guest_service.create_guest(db)
     background_tasks.add_task(guest_service.cleanup_expired_guests)
@@ -120,7 +131,10 @@ async def guest_logout(
 
 
 @router.post("/login")
-async def login(data: LoginRequest, db: AsyncSession = Depends(get_db)):
+@limiter.limit("10/minute")
+async def login(
+    request: Request, data: LoginRequest, db: AsyncSession = Depends(get_db)
+):
     user = await auth_service.login(db, data.email, data.password)
 
     access_token = create_access_token(str(user.id))
