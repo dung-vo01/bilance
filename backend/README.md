@@ -39,11 +39,25 @@ alembic upgrade head
 uvicorn main:app --reload
 ```
 
-Or via Docker Compose (starts Postgres too):
+Or via Docker Compose (starts Postgres and Redis too):
 
 ```bash
 docker compose up --build
 ```
+
+You can also run just the infrastructure in Docker and the API on your
+machine (hot reload, no rebuilds). Naming a service starts only that service:
+
+```bash
+docker compose up -d redis       # Redis only (optional, see "Rate limiting")
+docker compose up -d db redis    # Postgres + Redis
+docker compose ps                # status
+docker compose stop redis        # stop one service
+docker compose down              # stop and remove everything
+```
+
+If you already run Postgres natively, start only `redis` - the compose `db`
+service would clash with your Postgres on port 5432.
 
 ## Tests
 
@@ -145,9 +159,19 @@ the usual `{"success": false, "error": ...}` body and a `Retry-After` header
 
 - **Storage** is set with `RATE_LIMIT_STORAGE_URI`. The default, `memory://`,
   keeps counters inside the process, which is correct for a single instance
-  (counters reset on restart). If you run more than one instance or worker, point
-  it at Redis (`redis://host:6379`, plus the `redis` package) so they share
-  counts.
+  (counters reset on restart). If you run more than one instance or worker,
+  point it at Redis so they share counts and keep them across restarts. The
+  `redis` package is already in `requirements.txt`.
+- **Local Redis** runs from the compose file (`docker compose up -d redis`);
+  set `RATE_LIMIT_STORAGE_URI=redis://localhost:6379` in your `.env`. The port
+  is published on `127.0.0.1` only, because Redis has no password here. Inside
+  Compose the app uses `redis://redis:6379`. Counters are stored as
+  `LIMITS:LIMITER/<ip>/<path>/<amount>/<multiple>/<unit>` keys with a TTL equal
+  to the window, so Redis cleans them up on its own.
+- **If Redis is down** the limiter fails open: after a 1-second connect/read
+  timeout it logs a warning, falls back to in-memory counters (so limits become
+  per-process) and switches back when Redis returns. Requests are never
+  rejected because of a limiter outage.
 - **Behind a proxy** (Render, etc.) the client IP comes from `X-Forwarded-For`.
   The `Procfile` starts uvicorn with `--forwarded-allow-ips="*"`; without it every
   user would appear to come from the proxy's IP and share one counter. Only use
@@ -155,5 +179,6 @@ the usual `{"success": false, "error": ...}` body and a `Retry-After` header
 - **Middleware order** in `main.py` matters: CORS must be the outermost layer so
   that 429 responses still carry CORS headers and browsers show the message
   instead of a CORS error.
-- **Tests** turn the limiter off globally (an autouse fixture in
-  `tests/conftest.py`); `tests/test_rate_limit.py` re-enables it per test.
+- **Tests** always use `memory://` (set at the top of `tests/conftest.py`, so a
+  Redis URL in your `.env` is ignored) and turn the limiter off globally with an
+  autouse fixture; `tests/test_rate_limit.py` re-enables it per test.
