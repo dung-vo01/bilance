@@ -158,10 +158,16 @@ the usual `{"success": false, "error": ...}` body and a `Retry-After` header
 (seconds).
 
 - **Storage** is set with `RATE_LIMIT_STORAGE_URI`. The default, `memory://`,
-  keeps counters inside the process, which is correct for a single instance
-  (counters reset on restart). If you run more than one instance or worker,
-  point it at Redis so they share counts and keep them across restarts. The
-  `redis` package is already in `requirements.txt`.
+  keeps counters inside the process, which is only exact for a single worker
+  (each uvicorn worker counts separately, and counters reset on restart). With
+  more than one instance or worker, point it at Redis so they share counts and
+  keep them across restarts. The `redis` package is already in
+  `requirements.txt`.
+- **Production** (Render) runs the `Dockerfile` with 2 uvicorn workers
+  (`WEB_CONCURRENCY`), so it uses a Render Key Value (Redis) instance in the same
+  region: set `RATE_LIMIT_STORAGE_URI` on the web service to the instance's
+  internal URL. It is the free plan with no persistence, which is fine for
+  counters that expire on their own.
 - **Local Redis** runs from the compose file (`docker compose up -d redis`);
   set `RATE_LIMIT_STORAGE_URI=redis://localhost:6379` in your `.env`. The port
   is published on `127.0.0.1` only, because Redis has no password here. Inside
@@ -173,9 +179,10 @@ the usual `{"success": false, "error": ...}` body and a `Retry-After` header
   per-process) and switches back when Redis returns. Requests are never
   rejected because of a limiter outage.
 - **Behind a proxy** (Render, etc.) the client IP comes from `X-Forwarded-For`.
-  The `Procfile` starts uvicorn with `--forwarded-allow-ips="*"`; without it every
-  user would appear to come from the proxy's IP and share one counter. Only use
-  `"*"` when the app is reachable only through the host's proxy.
+  The `Dockerfile` start command passes `--forwarded-allow-ips '*'` to uvicorn
+  (Render runs the Dockerfile and ignores the `Procfile`); without it every user
+  would appear to come from the proxy's IP and share one counter. Only use `"*"`
+  when the app is reachable only through the host's proxy.
 - **Middleware order** in `main.py` matters: CORS must be the outermost layer so
   that 429 responses still carry CORS headers and browsers show the message
   instead of a CORS error.
