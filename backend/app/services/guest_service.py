@@ -184,9 +184,9 @@ async def create_guest(db: AsyncSession) -> tuple[User, str, str]:
     return guest, access_token, refresh_token
 
 
-async def _delete_guest_ids(db: AsyncSession, user_ids: list[int]) -> None:
+async def _delete_guest_ids(db: AsyncSession, user_ids: list[int]) -> int:
     if not user_ids:
-        return
+        return 0
 
     group_ids = (
         (
@@ -218,11 +218,13 @@ async def _delete_guest_ids(db: AsyncSession, user_ids: list[int]) -> None:
     # violating the expense_groups.created_by_id FK.
     await db.flush()
 
-    await db.execute(delete(User).where(User.id.in_(user_ids)))
+    result = await db.execute(delete(User).where(User.id.in_(user_ids)))
     await db.commit()
+    
+    return result.rowcount
 
 
-async def _cleanup_expired_guests(db: AsyncSession) -> None:
+async def purge_expired_guests(db: AsyncSession) -> int:
     cutoff = datetime.now(timezone.utc) - timedelta(
         hours=settings.GUEST_ACCOUNT_TTL_HOURS
     )
@@ -235,7 +237,7 @@ async def _cleanup_expired_guests(db: AsyncSession) -> None:
         .scalars()
         .all()
     )
-    await _delete_guest_ids(db, expired_ids)
+    return await _delete_guest_ids(db, expired_ids)
 
 
 async def cleanup_expired_guests() -> None:
@@ -246,7 +248,7 @@ async def cleanup_expired_guests() -> None:
     tasks run).
     """
     async with async_session_factory() as db:
-        await _cleanup_expired_guests(db)
+        await purge_expired_guests(db)
 
 
 async def delete_guest_now(db: AsyncSession, user_id: int) -> None:

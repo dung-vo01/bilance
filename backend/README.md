@@ -133,6 +133,36 @@ app is running.
 | GET              | /api/contacts/requests/sent                                  | Your outgoing pending friend requests                                                                                                                                                                                                                |
 | DELETE           | /api/contacts/requests/{notification_id}                     | Cancel a friend request you sent                                                                                                                                                                                                                     |
 | DELETE           | /api/contacts/{user_id}                                      | Unfriend - removes the contact relationship both ways (doesn't affect shared group membership)                                                                                                                                                       |
+| POST             | /api/internal/cleanup-guests                                 | Delete expired guest accounts and their data; returns `{"deleted": n}`. For scheduled jobs: requires the `X-Internal-Secret` header (403 otherwise)                                                                                                  |
+
+## Internal routes
+
+Routes under `/api/internal` are for scheduled jobs, not for the frontend. They
+have no user login; instead the caller sends a shared secret in the
+`X-Internal-Secret` header, which must match `INTERNAL_API_SECRET`:
+
+```bash
+curl -X POST https://<your-api>/api/internal/cleanup-guests \
+  -H "X-Internal-Secret: $INTERNAL_API_SECRET"
+# {"success": true, "data": {"deleted": 3}}
+```
+
+- **Empty means disabled.** The default is an empty secret, and then every
+  internal route returns `403`, even for a request with an empty header. Set it
+  only where the routes should be reachable, using a long random value:
+  `python -c "import secrets; print(secrets.token_urlsafe(32))"`.
+- A missing, wrong or unset secret all give the same `403`, and the secret is
+  compared in constant time (`require_internal_secret` in `app/core/deps.py`).
+  Add that dependency to every new internal route.
+- The endpoint is on the public internet like the rest of the API, so the secret
+  is the only protection: keep it out of the code and rotate it if it leaks.
+- **`POST /api/internal/cleanup-guests`** deletes guest accounts older than
+  `GUEST_ACCOUNT_TTL_HOURS` together with their data and returns how many it
+  removed. Calling it twice is safe (the second call deletes nothing). Guest
+  logins also trigger the same cleanup in the background, so this route is what
+  keeps the table tidy when nobody signs in as a guest. It is meant to be called
+  once a day by a scheduler.
+- The default rate limit (see below) applies to these routes too.
 
 ## Rate limiting
 

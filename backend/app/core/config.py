@@ -29,6 +29,7 @@ class Settings(BaseSettings):
     PASSWORD_RESET_EXPIRE_MINUTES: int = 30
     GUEST_ACCOUNT_TTL_HOURS: int = 24
     RATE_LIMIT_STORAGE_URI: str = "memory://"
+    INTERNAL_API_SECRET: str = ""
 
     @property
     def cors_origins_list(self) -> list[str]:

@@ -33,6 +33,7 @@ from app.routers import (
     expense_groups,
     expenses,
     health,
+    internal,
     notifications,
     users,
 )
@@ -45,3 +46,4 @@ app.include_router(expense_groups.router, prefix="/api/expense-groups")
 app.include_router(expenses.router, prefix="/api/expenses")
 app.include_router(categories.router, prefix="/api/categories")
 app.include_router(notifications.router, prefix="/api/notifications")
+app.include_router(internal.router, prefix="/api/internal")

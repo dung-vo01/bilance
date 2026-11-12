@@ -102,7 +102,7 @@ async def test_cleanup_removes_expired_guests_but_not_companion_or_fresh_guest(
     fresh_response = await client.post("/api/auth/guest")
     fresh_guest_id = fresh_response.json()["data"]["user"]["id"]
 
-    await guest_service._cleanup_expired_guests(db_session)
+    await guest_service.purge_expired_guests(db_session)
 
     assert await db_session.get(User, old_guest_id) is None
     assert await db_session.get(User, fresh_guest_id) is not None
