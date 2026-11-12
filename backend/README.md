@@ -160,8 +160,10 @@ curl -X POST https://<your-api>/api/internal/cleanup-guests \
   `GUEST_ACCOUNT_TTL_HOURS` together with their data and returns how many it
   removed. Calling it twice is safe (the second call deletes nothing). Guest
   logins also trigger the same cleanup in the background, so this route is what
-  keeps the table tidy when nobody signs in as a guest. It is meant to be called
-  once a day by a scheduler.
+  keeps the table tidy when nobody signs in as a guest. It is called once a day
+  at 03:00AM (Europe/Helsinki zone) by an AWS Lambda on an EventBridge schedule (see
+  [`infra/README.md`](../infra/README.md)), which reads the secret from SSM
+  Parameter Store. The value there must match `INTERNAL_API_SECRET` here.
 - The default rate limit (see below) applies to these routes too.
 
 ## Rate limiting

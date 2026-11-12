@@ -57,6 +57,7 @@ custom split ratios, invites, and a settlement view showing who owes who.
 ```
 backend/    FastAPI app  - see backend/README.md
 frontend/   React app    - see frontend/README.md
+infra/      AWS pieces (scheduled guest cleanup) - see infra/README.md
 docs/       design notes (expense sharing & settlement rules)
 ```
 
