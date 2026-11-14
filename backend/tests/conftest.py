@@ -64,6 +64,12 @@ def _disable_rate_limiting():
     limiter.enabled = True
 
 
+@pytest.fixture(autouse=True)
+def _missing_ses_keys(monkeypatch):
+    monkeypatch.setattr(settings, "AWS_SES_ACCESS_KEY", "")
+    monkeypatch.setattr(settings, "AWS_SES_SECRET_ACCESS_KEY", "")
+
+
 @pytest_asyncio.fixture
 async def create_user(db_session):
     async def _create(

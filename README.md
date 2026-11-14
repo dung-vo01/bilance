@@ -50,7 +50,7 @@ custom split ratios, invites, and a settlement view showing who owes who.
 - **Backend** - FastAPI, SQLAlchemy 2.0 (async), PostgreSQL, Alembic, optional
   Redis for shared rate-limit counters
 - **Auth** - JWT (access + refresh), bcrypt password hashing, email
-  verification via SendGrid
+  verification via Amazon SES
 
 ## Project structure
 
