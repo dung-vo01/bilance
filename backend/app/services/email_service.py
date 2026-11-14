@@ -1,74 +1,52 @@
+import asyncio
 import logging
-import re
 
-import httpx
+from botocore.exceptions import BotoCoreError, ClientError
 
 from app.core.config import settings
+from app.core.ses_client import get_ses_client
 
 logger = logging.getLogger("app.email")
 
-RESEND_API_URL = "https://api.resend.com/emails"
-SENDGRID_API_URL = "https://api.sendgrid.com/v3/mail/send"
-
-
-def _parse_from_header(value: str) -> tuple[str, str]:
-    """Splits 'Display Name <email@domain>' into (name, email)."""
-    match = re.match(r"^\s*(.*?)\s*<(.+?)>\s*$", value)
-    if match:
-        return match.group(1), match.group(2)
-    return value, value
-
-
-async def _send_resend(to: str, subject: str, html: str) -> None:
-    """Dormant - Resend only supports full-domain verification. Point the
-    public send_* functions at this instead of _send() to re-enable it."""
-    if not settings.RESEND_API_KEY:
-        logger.warning(
-            "RESEND_API_KEY not set; skipping email to %s (subject=%s)", to, subject
-        )
-        return
-
-    async with httpx.AsyncClient(timeout=10.0) as client:
-        try:
-            response = await client.post(
-                RESEND_API_URL,
-                headers={"Authorization": f"Bearer {settings.RESEND_API_KEY}"},
-                json={
-                    "from": settings.EMAIL_FROM,
-                    "to": [to],
-                    "subject": subject,
-                    "html": html,
-                },
-            )
-            response.raise_for_status()
-        except httpx.HTTPError:
-            logger.exception("Failed to send email to %s (subject=%s)", to, subject)
-
 
 async def _send(to: str, subject: str, html: str) -> None:
-    if not settings.SENDGRID_API_KEY:
+    if not settings.EMAIL_FROM:
         logger.warning(
-            "SENDGRID_API_KEY not set; skipping email to %s (subject=%s)", to, subject
+            "EMAIL_FROM not set; skipping email to %s (subject=%s)", to, subject
         )
         return
 
-    from_name, from_email = _parse_from_header(settings.EMAIL_FROM)
+    if not (settings.AWS_SES_ACCESS_KEY and settings.AWS_SES_SECRET_ACCESS_KEY):
+        logger.warning(
+            "SES keys not set; skipping email to %s (subject=%s)", to, subject
+        )
+        return
 
-    async with httpx.AsyncClient(timeout=10.0) as client:
-        try:
-            response = await client.post(
-                SENDGRID_API_URL,
-                headers={"Authorization": f"Bearer {settings.SENDGRID_API_KEY}"},
-                json={
-                    "personalizations": [{"to": [{"email": to}]}],
-                    "from": {"email": from_email, "name": from_name},
-                    "subject": subject,
-                    "content": [{"type": "text/html", "value": html}],
-                },
-            )
-            response.raise_for_status()
-        except httpx.HTTPError:
-            logger.exception("Failed to send email to %s (subject=%s)", to, subject)
+    try:
+        client = get_ses_client()
+
+        await asyncio.to_thread(
+            client.send_email,
+            FromEmailAddress=settings.EMAIL_FROM,
+            Destination={
+                "ToAddresses": [
+                    to,
+                ]
+            },
+            Content={
+                "Simple": {
+                    "Subject": {"Data": subject, "Charset": "UTF-8"},
+                    "Body": {
+                        "Html": {"Data": html, "Charset": "UTF-8"},
+                    },
+                }
+            },
+        )
+        
+        logger.info("Sent email to %s (subject=%s)", to, subject)
+
+    except (BotoCoreError, ClientError):
+        logger.exception("Failed to send email to %s (subject=%s)", to, subject)
 
 
 async def send_verification_email(
