@@ -11,21 +11,60 @@ pip install -r requirements.txt
 cp .env.example .env      # fill in your values
 ```
 
-Email (verification, password reset, group-invitation and friend-request
-notices) is sent via
-[SendGrid](https://sendgrid.com), using their free **Single Sender
-Verification** - verify one email address you control (they email you a
-confirmation link, no domain or DNS setup needed), set `EMAIL_FROM` to that
-address, and you can then send to any real recipient. Without
-`SENDGRID_API_KEY` set, sends are skipped with a log line instead of
-failing, so local dev works without an account.
+## Email
 
-A [Resend](https://resend.com)-based implementation
-(`email_service._send_resend`) is also kept in the codebase but unused -
-Resend only supports verifying a full domain (no single-address option), so
-switching to it means owning a domain. To re-enable it, point the public
-`send_*` functions at `_send_resend` instead of `_send` and set
-`RESEND_API_KEY`.
+> **Sandbox only:** the SES account is in sandbox mode, so email works
+> **only for verified addresses** (the sender and any recipient you have
+> verified in SES). Real users do not receive verification or password-reset
+> emails on the live deployment. Lifting this needs production access, and
+> the SES console asks for a verified sender **domain** first, which this
+> project does not have yet. Guest mode works without email.
+
+Email (verification, password reset, group-invitation and friend-request
+notices) is sent through [Amazon SES](https://aws.amazon.com/ses/) using
+boto3 (`sesv2` API). Configure it with:
+
+| Variable | Purpose |
+| --- | --- |
+| `EMAIL_FROM` | Sender, e.g. `Bilance <noreply@example.com>`. Must be an identity verified in SES |
+| `AWS_REGION` | Region where that identity is verified (default `eu-north-1`) |
+| `AWS_SES_ACCESS_KEY` / `AWS_SES_SECRET_ACCESS_KEY` | Access key of an IAM user that may only call `ses:SendEmail` |
+
+If `EMAIL_FROM` or the keys are not set, sends are skipped with a log line
+instead of failing, so local dev and the tests work without an AWS account.
+A failed send (rejected address, missing permission, network error) is
+logged and never breaks the request that triggered it. A successful send
+logs `Sent email to ...`.
+
+Setup in AWS (region `eu-north-1`):
+
+1. SES -> Identities -> create and verify the sender (an email address, or
+   better a domain you own: mail sent "from" a `gmail.com` address fails
+   Gmail's DMARC alignment and often lands in spam).
+2. Create an IAM user without console access and give it an inline policy
+   limited to sending. The key is long-lived, so keep the policy this narrow:
+
+   ```json
+   {
+     "Version": "2012-10-17",
+     "Statement": [
+       {
+         "Effect": "Allow",
+         "Action": "ses:SendEmail",
+         "Resource": "arn:aws:ses:eu-north-1:<account-id>:identity/*"
+       }
+     ]
+   }
+   ```
+
+3. Create an access key for that user and set the three variables above
+   (`.env` locally, the environment settings on the host in production).
+
+**Sandbox:** a new SES account can only send **to verified addresses**
+(about 200 emails a day, 1 a second) until you request production access.
+In the sandbox, create an identity for each test recipient as well; real
+users do not receive mail until production access is granted. The SES
+console currently asks for a verified domain before it offers the request.
 
 ## Database
 
