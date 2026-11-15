@@ -13,6 +13,13 @@ cp .env.example .env      # fill in your values
 
 ## Email
 
+> **Sandbox only:** the SES account is in sandbox mode, so email works
+> **only for verified addresses** (the sender and any recipient you have
+> verified in SES). Real users do not receive verification or password-reset
+> emails on the live deployment. Lifting this needs production access, and
+> the SES console asks for a verified sender **domain** first, which this
+> project does not have yet. Guest mode works without email.
+
 Email (verification, password reset, group-invitation and friend-request
 notices) is sent through [Amazon SES](https://aws.amazon.com/ses/) using
 boto3 (`sesv2` API). Configure it with:

@@ -13,6 +13,13 @@ custom split ratios, invites, and a settlement view showing who owes who.
 > shows a "waking up the server" message during that wait so it doesn't
 > look stuck; subsequent requests are fast.
 
+> **Email limitation:** transactional email (verification, password reset,
+> invitations) is sent through Amazon SES, which is still in **sandbox
+> mode**. It only delivers to addresses verified in SES, so on the live demo
+> a new signup will not receive its verification email. Use **guest mode**
+> to try the app. Lifting the limit needs a sender domain (see
+> [`backend/README.md`](backend/README.md#email)).
+
 ## Screenshots
 
 ![Dashboard](docs/screenshots/dashboard.png)
