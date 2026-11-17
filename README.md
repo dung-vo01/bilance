@@ -8,6 +8,19 @@ custom split ratios, invites, and a settlement view showing who owes who.
 
 **<a href="https://bilance.vercel.app/" target="_blank" rel="noopener noreferrer">Live demo</a>**
 
+The same frontend is deployed to two hosts, both calling the same API and
+database:
+
+| Host | URL | How it is deployed |
+| --- | --- | --- |
+| Vercel | <a href="https://bilance.vercel.app/" target="_blank" rel="noopener noreferrer">bilance.vercel.app</a> | CI job `deploy-frontend` (Vercel CLI) |
+| AWS S3 + CloudFront | <a href="https://d8jwj1s3y6g2n.cloudfront.net/" target="_blank" rel="noopener noreferrer">d8jwj1s3y6g2n.cloudfront.net</a> | CI job `deploy-frontend-aws` (GitHub OIDC, no stored AWS keys) |
+
+Both are updated on every push to `main`. The AWS one exists to practise
+hosting a static site on AWS; the CloudFront address is a generated name
+because the project has no custom domain yet. See
+[`infra/README.md`](infra/README.md#frontend-hosting-s3--cloudfront).
+
 > **Note:** the backend is on a free-tier host and spins down when idle, so
 > the first request can take up to a minute to wake it back up. The app
 > shows a "waking up the server" message during that wait so it doesn't
@@ -65,7 +78,7 @@ custom split ratios, invites, and a settlement view showing who owes who.
 ```
 backend/    FastAPI app  - see backend/README.md
 frontend/   React app    - see frontend/README.md
-infra/      AWS pieces (scheduled guest cleanup) - see infra/README.md
+infra/      AWS pieces (frontend hosting, scheduled guest cleanup) - see infra/README.md
 docs/       design notes (expense sharing & settlement rules)
 ```
 
