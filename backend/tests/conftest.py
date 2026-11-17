@@ -70,6 +70,15 @@ def _missing_ses_keys(monkeypatch):
     monkeypatch.setattr(settings, "AWS_SES_SECRET_ACCESS_KEY", "")
 
 
+@pytest.fixture(autouse=True)
+def _email_enabled(monkeypatch):
+    monkeypatch.setattr(settings, "EMAIL_ENABLED", True)
+
+@pytest.fixture
+def email_disabled(monkeypatch):
+    monkeypatch.setattr(settings, "EMAIL_ENABLED", False)
+
+
 @pytest_asyncio.fixture
 async def create_user(db_session):
     async def _create(

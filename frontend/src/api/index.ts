@@ -24,6 +24,7 @@ import type {
   Repayment,
   NewRepaymentPayload,
   UndoRepaymentPayload,
+  ServerConfig,
 } from "@/types";
 
 //--------------------------------------------------------------------------------
@@ -36,7 +37,10 @@ export const authApi = {
     password: string;
     firstname?: string;
     lastname?: string;
-  }) => api.post<{ data: { user: User } }>("/auth/register", data),
+  }) =>
+    api.post<{
+      data: { user: User; access_token?: string; refresh_token?: string };
+    }>("/auth/register", data),
 
   login: (data: { email: string; password: string }) =>
     api.post<{ data: AuthTokens }>("/auth/login", data),
@@ -246,4 +250,11 @@ export const notificationsApi = {
       `/notifications/contacts/${id}/respond`,
       { accept },
     ),
+};
+
+//--------------------------------------------------------------------------------
+// Config
+//--------------------------------------------------------------------------------
+export const configApi = {
+  getServerConfig: () => api.get<{ data: ServerConfig }>("/config"),
 };

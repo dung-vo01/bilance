@@ -12,6 +12,7 @@ import {
   categoriesApi,
   notificationsApi,
   contactsApi,
+  configApi,
 } from "@/api";
 import {
   Category,
@@ -21,6 +22,7 @@ import {
   ExpenseListParams,
   NewRepaymentPayload,
   Notification,
+  ServerConfig,
   UndoRepaymentPayload,
   UpdateCategoryPayload,
   UpdateExpenseGroupPayload,
@@ -48,6 +50,7 @@ export const queryKeys = {
   contacts: ["contacts"] as const,
   contactsDetail: ["contacts", "detail"] as const,
   sentContactRequests: ["contacts", "requests", "sent"] as const,
+  serverConfig: ["serverConfig"] as const,
 };
 
 //helpers
@@ -706,3 +709,14 @@ export const useRespondToContactRequest = () => {
     },
   });
 };
+
+//--------------------------------------------------------------------------------
+// Server config
+//--------------------------------------------------------------------------------
+export const useServerConfig = () =>
+  useQuery({
+    queryKey: queryKeys.serverConfig,
+    queryFn: () =>
+      configApi.getServerConfig().then((r) => r.data.data as ServerConfig),
+    staleTime: Infinity,
+  });

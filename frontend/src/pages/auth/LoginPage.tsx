@@ -6,7 +6,11 @@ import { Icon } from "@iconify/react";
 import { authApi } from "@/api";
 import { useAuthStore } from "@/stores/authStore";
 import { AuthLayout } from "@/components/auth/AuthLayout";
-import { useGuestLogin, useResendVerification } from "@/hooks/queries";
+import {
+  useGuestLogin,
+  useResendVerification,
+  useServerConfig,
+} from "@/hooks/queries";
 import { useSlowLoading } from "@/hooks/useSlowLoading";
 import type { ApiError } from "@/types";
 import styles from "./Auth.module.scss";
@@ -20,6 +24,7 @@ export const LoginPage = () => {
   const [error, setError] = useState("");
   const [unverified, setUnverified] = useState(false);
   const [resent, setResent] = useState(false);
+  const { data: serverConfig } = useServerConfig();
 
   const resetSuccess = Boolean(
     (location.state as { resetSuccess?: boolean } | null)?.resetSuccess,
@@ -54,10 +59,11 @@ export const LoginPage = () => {
     setError("");
     resendVerification(form.email, {
       onSuccess: () => setResent(true),
-      onError: (err) =>
+      onError: (err) => {
         setError(
           getErrorMessage(err, "Couldn't resend email. Please try again."),
-        ),
+        );
+      },
     });
   };
 
@@ -150,9 +156,11 @@ export const LoginPage = () => {
                 required
               />
             </div>
-            <Link to="/forgot-password" className={styles.forgotLink}>
-              Forgot your password?
-            </Link>
+            {serverConfig?.email_enabled && (
+              <Link to="/forgot-password" className={styles.forgotLink}>
+                Forgot your password?
+              </Link>
+            )}
           </div>
 
           <button type="submit" className={styles.btn} disabled={isPending}>

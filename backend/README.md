@@ -13,12 +13,32 @@ cp .env.example .env      # fill in your values
 
 ## Email
 
+Email is an **optional add-on**. The `EMAIL_ENABLED` setting (`true` or
+`false`, default `false`) decides how the app behaves:
+
+| | `EMAIL_ENABLED=false` (default) | `EMAIL_ENABLED=true` |
+| --- | --- | --- |
+| Signup | Account is created already verified and the response contains tokens, so the user is logged in at once | Account is unverified; a verification link is emailed and no tokens are returned |
+| Login | Does not require a verified email (so older unverified accounts can log in) | Blocked with 403 until the email is verified |
+| `POST /api/auth/forgot-password`, `POST /api/auth/resend-verification` | Return `503 Email service is unavailable` | Email a reset / verification link |
+| Group invitations, friend requests | In-app notification only | In-app notification plus an email |
+
+The frontend reads the flag from `GET /api/config` (`{"email_enabled": ...}`)
+and hides the "Forgot your password?" link when it is off.
+
+**Trade-offs of `false`:** nothing proves a user owns the address they signed
+up with, and there is no password recovery. It is meant for demos and local
+development. Guest mode works in both modes.
+
+The rest of this section applies to `EMAIL_ENABLED=true`.
+
 > **Sandbox only:** the SES account is in sandbox mode, so email works
 > **only for verified addresses** (the sender and any recipient you have
-> verified in SES). Real users do not receive verification or password-reset
-> emails on the live deployment. Lifting this needs production access, and
-> the SES console asks for a verified sender **domain** first, which this
-> project does not have yet. Guest mode works without email.
+> verified in SES). With `EMAIL_ENABLED=true`, real users would not receive
+> verification or password-reset emails. Lifting this needs production
+> access, and the SES console asks for a verified sender **domain** first,
+> which this project does not have yet. That is why the live deployment
+> runs with `EMAIL_ENABLED=false`.
 
 Email (verification, password reset, group-invitation and friend-request
 notices) is sent through [Amazon SES](https://aws.amazon.com/ses/) using
@@ -26,12 +46,14 @@ boto3 (`sesv2` API). Configure it with:
 
 | Variable | Purpose |
 | --- | --- |
+| `EMAIL_ENABLED` | `true` to send email (default `false`) |
 | `EMAIL_FROM` | Sender, e.g. `Bilance <noreply@example.com>`. Must be an identity verified in SES |
 | `AWS_REGION` | Region where that identity is verified (default `eu-north-1`) |
 | `AWS_SES_ACCESS_KEY` / `AWS_SES_SECRET_ACCESS_KEY` | Access key of an IAM user that may only call `ses:SendEmail` |
 
-If `EMAIL_FROM` or the keys are not set, sends are skipped with a log line
-instead of failing, so local dev and the tests work without an AWS account.
+If `EMAIL_ENABLED=true` but `EMAIL_FROM` or the keys are not set, sends are
+skipped with a log line instead of failing, so local dev and the tests work
+without an AWS account.
 A failed send (rejected address, missing permission, network error) is
 logged and never breaks the request that triggered it. A successful send
 logs `Sent email to ...`.
@@ -129,15 +151,16 @@ app is running.
 
 | Method           | Endpoint                                                     | Description                                                                                                                                                                                                                                          |
 | ---------------- | ------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| GET              | /api/config                                                  | Public server settings, currently `{"email_enabled": bool}`                                                                             |
 | GET              | /health                                                      | Liveness/readiness (checks DB)                                                                                                                                                                                                                       |
-| POST             | /api/auth/register                                           | Register - creates an unverified account and emails a verification link; does not return tokens                                                                                                                                                      |
+| POST             | /api/auth/register                                           | Register - email on: creates an unverified account and emails a verification link, no tokens; email off: account is verified and tokens are returned                                                                                                                                                      |
 | POST             | /api/auth/verify-email/{token}                               | Verify email from the emailed link                                                                                                                                                                                                                   |
-| POST             | /api/auth/resend-verification                                | Resend the verification email (enumeration-safe response)                                                                                                                                                                                            |
-| POST             | /api/auth/forgot-password                                    | Email a password-reset link (enumeration-safe response)                                                                                                                                                                                              |
+| POST             | /api/auth/resend-verification                                | Resend the verification email (enumeration-safe response; 503 when email is disabled)                                                                                                                                                                                            |
+| POST             | /api/auth/forgot-password                                    | Email a password-reset link (enumeration-safe response; 503 when email is disabled)                                                                                                                                                                                              |
 | POST             | /api/auth/reset-password                                     | Set a new password from a reset token                                                                                                                                                                                                                |
 | POST             | /api/auth/guest                                              | Create and log into a pre-seeded guest sandbox account, no signup required (sample group with a pending expense and active + undone repayments)                                                                                                      |
 | POST             | /api/auth/guest/logout                                       | Immediately delete the current guest's account and data (real users get a 403)                                                                                                                                                                       |
-| POST             | /api/auth/login                                              | Login - blocked with 403 until the account's email is verified                                                                                                                                                                                       |
+| POST             | /api/auth/login                                              | Login - when email is enabled, blocked with 403 until the account's email is verified                                                                                                                                                                                       |
 | POST             | /api/auth/refresh                                            | Refresh token (refresh JWT as Bearer header)                                                                                                                                                                                                         |
 | GET              | /api/auth/me                                                 | Current user                                                                                                                                                                                                                                         |
 | GET              | /api/users                                                   | List/search users (admin only)                                                                                                                                                                                                                       |

@@ -1,6 +1,7 @@
 from fastapi import APIRouter, BackgroundTasks, Depends, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import settings
 from app.core.limiter import limiter
 from app.core.deps import get_current_user_id
 from app.db.session import get_db
@@ -53,7 +54,11 @@ async def send_contact_request(
     db: AsyncSession = Depends(get_db),
 ):
     notification = await contact_service.send_request(db, user_id, data.username)
-    if notification.recipient and notification.recipient.email:
+    if (
+        settings.EMAIL_ENABLED
+        and notification.recipient
+        and notification.recipient.email
+    ):
         background_tasks.add_task(
             email_service.send_contact_request_email,
             notification.recipient.email,

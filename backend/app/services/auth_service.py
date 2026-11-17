@@ -48,8 +48,6 @@ async def register(
     password = data.password or "password123"
     password_hash = await hash_password(password)
 
-    token = _generate_token()
-
     user = User(
         username=data.username,
         email=data.email,
@@ -57,10 +55,18 @@ async def register(
         firstname=data.firstname,
         lastname=data.lastname,
         phone_number=data.phone_number,
-        email_verification_token_hash=_hash_token(token),
-        email_verification_token_expires_at=datetime.now(timezone.utc)
-        + timedelta(hours=settings.EMAIL_VERIFICATION_EXPIRE_HOURS),
     )
+
+    token = ""
+    # By-pass email verification flow if it is not enabled
+    if not settings.EMAIL_ENABLED:
+        user.is_email_verified = True
+    else:
+        token = _generate_token()
+        user.email_verification_token_hash = _hash_token(token)
+        user.email_verification_token_expires_at = datetime.now(
+            timezone.utc
+        ) + timedelta(hours=settings.EMAIL_VERIFICATION_EXPIRE_HOURS)
 
     # Case when admin creates a new user
     if data.role and current_user_id and await is_app_admin(db, current_user_id):
@@ -85,7 +91,8 @@ async def login(db: AsyncSession, email: str | None, password: str | None) -> Us
     if not user or not await verify_password(password, user.password_hash):
         raise UnauthenticatedError("Invalid credentials")
 
-    if not user.is_email_verified:
+    # Only check for email verified if email service is enabled
+    if settings.EMAIL_ENABLED and not user.is_email_verified:
         raise EmailNotVerifiedError()
 
     return user
@@ -136,7 +143,9 @@ async def resend_verification(
     return user, token
 
 
-async def forgot_password(db: AsyncSession, email: str | None) -> tuple[User, str] | None:
+async def forgot_password(
+    db: AsyncSession, email: str | None
+) -> tuple[User, str] | None:
     if not email:
         raise AppError("Email is required")
 
@@ -154,7 +163,9 @@ async def forgot_password(db: AsyncSession, email: str | None) -> tuple[User, st
     return user, token
 
 
-async def reset_password(db: AsyncSession, token: str, new_password: str | None) -> User:
+async def reset_password(
+    db: AsyncSession, token: str, new_password: str | None
+) -> User:
     if not new_password:
         raise AppError("Password is required")
 

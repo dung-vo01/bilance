@@ -73,6 +73,25 @@ async def test_login_succeeds_after_verification(client, create_user, db_session
 
 
 @pytest.mark.asyncio
+async def test_login_succeeds_as_unverified_user_when_email_disabled(
+    client, create_user, db_session, email_disabled
+):
+    await create_user(
+        username="kate",
+        email="kate@example.com",
+        password="secret123",
+        is_email_verified=False,
+    )
+
+    await db_session.commit()
+
+    login_response = await client.post(
+        "/api/auth/login", json={"email": "kate@example.com", "password": "secret123"}
+    )
+    assert login_response.status_code == 200
+
+
+@pytest.mark.asyncio
 async def test_verify_email_invalid_token(client):
     response = await client.post("/api/auth/verify-email/not-a-real-token")
     assert response.status_code == 400
@@ -110,3 +129,11 @@ async def test_resend_verification_already_verified(client, create_user):
         "/api/auth/resend-verification", json={"email": "mona@example.com"}
     )
     assert response.status_code == 200
+
+
+@pytest.mark.asyncio
+async def test_resend_verification_when_email_disabled(client, email_disabled):
+    response = await client.post(
+        "/api/auth/resend-verification", json={"email": "nobody@example.com"}
+    )
+    assert response.status_code == 503

@@ -337,3 +337,7 @@ export interface CategoryBreakdown {
   total: number;
   categories: CategoryBreakdownItem[];
 }
+
+export interface ServerConfig {
+  email_enabled: boolean;
+}

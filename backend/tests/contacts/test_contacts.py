@@ -335,6 +335,29 @@ async def test_send_contact_request_triggers_email(
 
 
 @pytest.mark.asyncio
+async def test_send_contact_request_triggers_no_email_when_email_disabled(
+    client, auth_headers, create_user, monkeypatch, email_disabled
+):
+    sent = []
+
+    async def fake_send(*args, **kwargs):
+        sent.append(args)
+
+    monkeypatch.setattr(
+        "app.services.email_service.send_contact_request_email", fake_send
+    )
+
+    headers_alice, _ = await auth_headers(username="alice", email="alice@example.com")
+    await create_user(username="bob", email="bob@example.com")
+
+    response = await client.post(
+        "/api/contacts/requests", headers=headers_alice, json={"username": "bob"}
+    )
+    assert response.status_code == 201
+    assert sent == []
+
+
+@pytest.mark.asyncio
 async def test_respond_contact_request_does_not_trigger_email(
     client, auth_headers, create_user, monkeypatch
 ):
