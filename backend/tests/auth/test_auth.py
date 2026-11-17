@@ -17,6 +17,23 @@ async def test_register_success(client):
 
 
 @pytest.mark.asyncio
+async def test_register_success_when_email_disabled(client, email_disabled):
+    response = await client.post(
+        "/api/auth/register",
+        json={"username": "alice", "email": "alice@example.com", "password": "pw12345"},
+    )
+    assert response.status_code == 201
+    body = response.json()
+    assert body["success"] is True
+    assert body["data"]["user"]["username"] == "alice"
+
+    # With email service disabled, the user will be auto-verified and tokens included in payload so the UI can log in automatically
+    assert body["data"]["user"]["is_email_verified"] is True
+    assert "access_token" in body["data"]
+    assert "refresh_token" in body["data"]
+
+
+@pytest.mark.asyncio
 async def test_register_duplicate_email(client, create_user):
     await create_user(username="bob", email="dup@example.com")
     response = await client.post(

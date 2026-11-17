@@ -29,6 +29,7 @@ register_exception_handlers(app)
 from app.routers import (
     auth,
     categories,
+    config,
     contacts,
     expense_groups,
     expenses,
@@ -47,3 +48,4 @@ app.include_router(expenses.router, prefix="/api/expenses")
 app.include_router(categories.router, prefix="/api/categories")
 app.include_router(notifications.router, prefix="/api/notifications")
 app.include_router(internal.router, prefix="/api/internal")
+app.include_router(config.router, prefix="/api/config")

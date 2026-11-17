@@ -30,6 +30,7 @@ class Settings(BaseSettings):
     AWS_REGION: str = "eu-north-1"
     AWS_SES_ACCESS_KEY: str = ""
     AWS_SES_SECRET_ACCESS_KEY: str = ""
+    EMAIL_ENABLED: bool = False
 
     @property
     def cors_origins_list(self) -> list[str]:

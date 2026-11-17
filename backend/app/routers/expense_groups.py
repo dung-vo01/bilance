@@ -1,8 +1,9 @@
 from fastapi import APIRouter, BackgroundTasks, Depends, Query, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.limiter import limiter
+from app.core.config import settings
 from app.core.deps import get_current_user_id
+from app.core.limiter import limiter
 from app.db.session import get_db
 from app.models.notification import NotificationType
 from app.schemas.common import envelope
@@ -92,16 +93,17 @@ async def invite_member(
     notifications = await expense_group_service.invite(
         db, expense_group_id, user_id, data.members
     )
-    for n in notifications:
-        if n.type == NotificationType.GROUP_INVITATION and n.recipient.email:
-            background_tasks.add_task(
-                email_service.send_group_invitation_email,
-                n.recipient.email,
-                n.recipient.firstname,
-                n.recipient.username,
-                n.actor.firstname or n.actor.username if n.actor else "Someone",
-                n.expense_group_name,
-            )
+    if settings.EMAIL_ENABLED:
+        for n in notifications:
+            if n.type == NotificationType.GROUP_INVITATION and n.recipient.email:
+                background_tasks.add_task(
+                    email_service.send_group_invitation_email,
+                    n.recipient.email,
+                    n.recipient.firstname,
+                    n.recipient.username,
+                    n.actor.firstname or n.actor.username if n.actor else "Someone",
+                    n.expense_group_name,
+                )
     return envelope(
         [
             NotificationOut.model_validate(n).model_dump(mode="json")

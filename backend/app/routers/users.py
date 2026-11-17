@@ -2,6 +2,7 @@ from fastapi import APIRouter, BackgroundTasks, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.authz import is_app_admin
+from app.core.config import settings
 from app.core.deps import get_current_user_id
 from app.core.exceptions import ForbiddenError
 from app.db.session import get_db
@@ -36,7 +37,7 @@ async def add_user(
     db: AsyncSession = Depends(get_db),
 ):
     user, token = await user_service.create(db, current_user_id, data)
-    if user.email:
+    if settings.EMAIL_ENABLED and user.email:
         background_tasks.add_task(
             email_service.send_verification_email,
             user.email,

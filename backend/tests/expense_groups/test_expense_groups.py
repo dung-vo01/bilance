@@ -244,6 +244,36 @@ async def test_invite_sends_email_only_for_group_invitation(
 
 
 @pytest.mark.asyncio
+async def test_invite_sends_no_email_when_email_disabled(
+    client, auth_headers, create_user, monkeypatch, email_disabled
+):
+    sent = []
+
+    async def fake_send_invitation(*args, **kwargs):
+        sent.append(args)
+
+    monkeypatch.setattr(
+        "app.services.email_service.send_group_invitation_email", fake_send_invitation
+    )
+
+    headers_alice, _ = await auth_headers(username="alice", email="alice@example.com")
+    await create_user(username="bob", email="bob@example.com")
+
+    create_resp = await client.post(
+        "/api/expense-groups", headers=headers_alice, json={"name": "Trip"}
+    )
+    group_id = create_resp.json()["data"]["id"]
+
+    response = await client.post(
+        f"/api/expense-groups/{group_id}/invite",
+        headers=headers_alice,
+        json={"members": [{"username": "bob", "default_split_ratio": 0.5}]},
+    )
+    assert response.status_code == 200
+    assert sent == []
+    
+
+@pytest.mark.asyncio
 async def test_invite_skips_email_when_recipient_has_no_email(
     client, auth_headers, create_user, monkeypatch
 ):

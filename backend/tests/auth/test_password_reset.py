@@ -39,6 +39,14 @@ async def test_forgot_password_unknown_email(client):
 
 
 @pytest.mark.asyncio
+async def test_forgot_password_when_email_disabled(client, email_disabled):
+    response = await client.post(
+        "/api/auth/forgot-password", json={"email": "nobody@example.com"}
+    )
+    assert response.status_code == 503
+
+
+@pytest.mark.asyncio
 async def test_reset_password_success(client, create_user, db_session):
     user = await create_user(
         username="oscar", email="oscar@example.com", password="oldpassword"

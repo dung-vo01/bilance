@@ -8,6 +8,7 @@ import { AuthLayout } from "@/components/auth/AuthLayout";
 import { useSlowLoading } from "@/hooks/useSlowLoading";
 import type { ApiError } from "@/types";
 import styles from "./Auth.module.scss";
+import { useAuthStore } from "@/stores/authStore";
 
 export const RegisterPage = () => {
   const navigate = useNavigate();
@@ -20,11 +21,20 @@ export const RegisterPage = () => {
     phone_number: "",
   });
   const [error, setError] = useState("");
+  const setAuth = useAuthStore((s) => s.setAuth);
 
   const { mutate, isPending } = useMutation({
     mutationFn: authApi.register,
-    onSuccess: () => {
-      navigate("/check-email", { state: { email: form.email } });
+    onSuccess: (res) => {
+      if (res.data.data.access_token && res.data.data.refresh_token) {
+        // Without the email service, log the user in
+        // Or better say: if the response payload has tokens, log in immediately
+        const { user, access_token, refresh_token } = res.data.data;
+        setAuth(user, access_token, refresh_token);
+        navigate("/dashboard");
+      } else {
+        navigate("/check-email", { state: { email: form.email } });
+      }
     },
     onError: (err: AxiosError<ApiError>) => {
       setError(err.response?.data?.error || "Registration failed");

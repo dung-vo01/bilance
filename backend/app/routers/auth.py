@@ -1,8 +1,10 @@
 from fastapi import APIRouter, BackgroundTasks, Depends, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.limiter import limiter
+from app.core.config import settings
 from app.core.deps import get_current_user, get_current_user_id, get_refresh_user_id
+from app.core.exceptions import AppError
+from app.core.limiter import limiter
 from app.core.security import create_access_token, create_refresh_token
 from app.db.session import get_db
 from app.models import User
@@ -28,15 +30,28 @@ async def register(
     db: AsyncSession = Depends(get_db),
 ):
     user, token = await auth_service.register(db, data)
-    background_tasks.add_task(
-        email_service.send_verification_email,
-        user.email,
-        user.firstname,
-        user.username,
-        token,
-    )
 
-    return envelope({"user": UserOut.model_validate(user).model_dump(mode="json")})
+    if settings.EMAIL_ENABLED:
+        background_tasks.add_task(
+            email_service.send_verification_email,
+            user.email,
+            user.firstname,
+            user.username,
+            token,
+        )
+        return envelope({"user": UserOut.model_validate(user).model_dump(mode="json")})
+
+    # Without email service, skip verification, log the user in
+    access_token = create_access_token(str(user.id))
+    refresh_token = create_refresh_token(str(user.id))
+
+    return envelope(
+        {
+            "access_token": access_token,
+            "refresh_token": refresh_token,
+            "user": UserOut.model_validate(user).model_dump(mode="json"),
+        }
+    )
 
 
 @router.post("/verify-email/{token}")
@@ -53,6 +68,10 @@ async def resend_verification(
     background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
 ):
+    # Without Email service enabled, this route is useless => notify the UI with a message
+    if not settings.EMAIL_ENABLED:
+        raise AppError(message="Email service is unavailable", status_code=503)
+
     result = await auth_service.resend_verification(db, data.email)
     if result:
         user, token = result
@@ -78,6 +97,10 @@ async def forgot_password(
     background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
 ):
+    # Without Email service enabled, this route is useless => notify the UI with a message
+    if not settings.EMAIL_ENABLED:
+        raise AppError(message="Email service is unavailable", status_code=503)
+
     result = await auth_service.forgot_password(db, data.email)
     if result:
         user, token = result

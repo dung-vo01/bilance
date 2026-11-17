@@ -13,12 +13,12 @@ custom split ratios, invites, and a settlement view showing who owes who.
 > shows a "waking up the server" message during that wait so it doesn't
 > look stuck; subsequent requests are fast.
 
-> **Email limitation:** transactional email (verification, password reset,
-> invitations) is sent through Amazon SES, which is still in **sandbox
-> mode**. It only delivers to addresses verified in SES, so on the live demo
-> a new signup will not receive its verification email. Use **guest mode**
-> to try the app. Lifting the limit needs a sender domain (see
-> [`backend/README.md`](backend/README.md#email)).
+> **Email is optional.** The live demo runs with email **off**
+> (`EMAIL_ENABLED=false`): signup logs you in immediately, and there is no
+> password recovery. Email (verification, password reset, invitations) uses
+> Amazon SES, which is still in **sandbox mode** and only delivers to
+> verified addresses, so it cannot be turned on for real users until there is
+> a sender domain. See [`backend/README.md`](backend/README.md#email).
 
 ## Screenshots
 
@@ -27,7 +27,8 @@ custom split ratios, invites, and a settlement view showing who owes who.
 
 ## Features
 
-- Auth with JWT access/refresh tokens, email verification, and password reset
+- Auth with JWT access/refresh tokens; email verification and password reset
+  are an optional add-on (`EMAIL_ENABLED`)
 - Guest mode - try the app instantly with a pre-seeded sandbox account, no
   signup required
 - Personal expense tracking - search, sort, filter by category/status,
@@ -57,7 +58,7 @@ custom split ratios, invites, and a settlement view showing who owes who.
 - **Backend** - FastAPI, SQLAlchemy 2.0 (async), PostgreSQL, Alembic, optional
   Redis for shared rate-limit counters
 - **Auth** - JWT (access + refresh), bcrypt password hashing, email
-  verification via Amazon SES
+  verification via Amazon SES (optional)
 
 ## Project structure
 
