@@ -74,7 +74,7 @@ export const DatePicker = ({ value, onChange, className }: Props) => {
     };
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
+  }, [isMobile]);
 
   useEffect(() => {
     if (!open) return;

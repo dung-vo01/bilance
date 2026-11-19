@@ -54,7 +54,7 @@ export const Select = ({
     };
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
+  }, [isMobile]);
 
   useEffect(() => {
     if (!open) return;

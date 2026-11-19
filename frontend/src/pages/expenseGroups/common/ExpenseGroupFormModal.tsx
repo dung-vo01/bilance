@@ -4,7 +4,7 @@ import {
   NewExpenseGroupPayload,
   UpdateExpenseGroupPayload,
 } from "@/types";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import styles from "./ExpenseGroupFormModal.module.scss";
 import { Icon } from "@iconify/react";
 
@@ -30,17 +30,12 @@ const ExpenseGroupFormModal = ({ expenseGroup, isEditing, onClose }: Props) => {
 
   const [form, setForm] = useState<
     NewExpenseGroupPayload | UpdateExpenseGroupPayload
-  >(initialExpenseGroupState);
+  >(() =>
+    expenseGroup
+      ? { name: expenseGroup.name, description: expenseGroup.description }
+      : initialExpenseGroupState,
+  );
   const [error, setError] = useState("");
-
-  useEffect(() => {
-    if (expenseGroup) {
-      setForm({
-        name: expenseGroup.name,
-        description: expenseGroup.description,
-      });
-    }
-  }, []);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();

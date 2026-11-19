@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Icon } from "@iconify/react";
 import type {
   Category,
@@ -46,51 +46,43 @@ export const ExpenseFormModal = ({
   const current_user = useAuthStore((s) => s.user);
 
   const [form, setForm] = useState<NewExpensePayload | UpdateExpensePayload>(
-    initialExpenseState,
+    () =>
+      expense
+        ? {
+            name: expense.name,
+            description: expense.description,
+            value: expense.value,
+            category_id: expense.category_id,
+            payee_id: expense.payee_id,
+            expense_group_id: expense.expense_group_id,
+            paid_at: expense.paid_at,
+          }
+        : { ...initialExpenseState, payee_id: current_user?.id ?? null },
   );
-  const [shares, setShares] = useState<MemberExpenseShare[]>([]);
+  const [shares, setShares] = useState<MemberExpenseShare[]>(() => {
+    if (!expense_group) {
+      return [];
+    }
+    // initialize shares from expense or group members
+    if (expense?.shares && expense.shares.length > 0) {
+      // editing: use existing shares
+      return expense.shares.map((s) => ({
+        user_id: s.user_id,
+        ratio: s.ratio,
+      }));
+    }
+    if (!isEditing) {
+      // creating: use default member ratios
+      return expense_group.members.map((m) => ({
+        user_id: m.user_id,
+        ratio: m.default_split_ratio,
+      }));
+    }
+    return [];
+  });
   const [error, setError] = useState("");
 
   const isPending = isEditing ? isUpdatePending : isCreatePending;
-
-  // initialize shares from expense or group members
-  useEffect(() => {
-    if (expense_group) {
-      if (expense?.shares && expense.shares.length > 0) {
-        // editing: use existing shares
-        setShares(
-          expense.shares.map((s) => ({ user_id: s.user_id, ratio: s.ratio })),
-        );
-      } else if (!isEditing) {
-        // creating: use default member ratios
-        setShares(
-          expense_group.members.map((m) => ({
-            user_id: m.user_id,
-            ratio: m.default_split_ratio,
-          })),
-        );
-      }
-    }
-  }, [expense_group]);
-
-  useEffect(() => {
-    if (expense) {
-      setForm({
-        name: expense.name,
-        description: expense.description,
-        value: expense.value,
-        category_id: expense.category_id,
-        payee_id: expense.payee_id,
-        expense_group_id: expense.expense_group_id,
-        paid_at: expense.paid_at,
-      });
-    } else {
-      //Default payee to be the current user
-      if (current_user) {
-        setForm({ ...form, payee_id: current_user.id });
-      }
-    }
-  }, []);
 
   const totalRatio = shares.reduce((sum, s) => sum + s.ratio, 0);
   const ratioValid = Math.abs(totalRatio - 1.0) < 0.001;
