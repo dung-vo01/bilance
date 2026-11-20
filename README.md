@@ -8,8 +8,9 @@ custom split ratios, invites, and a settlement view showing who owes who.
 
 **<a href="https://bilance.vercel.app/" target="_blank" rel="noopener noreferrer">Live demo</a>**
 
-The same frontend is deployed to two hosts, both calling the same API and
-database:
+The same frontend is deployed to two hosts. Each calls its own API with its own
+database: Vercel uses the API on Render, and the AWS one uses a copy of the API
+running on EC2 (an AWS practice setup).
 
 | Host | URL | How it is deployed |
 | --- | --- | --- |
