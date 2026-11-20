@@ -193,9 +193,12 @@ Same pattern as the frontend role. The trust policy only accepts tokens for
 the job must not use a GitHub `environment:`. Inline policy `deploy-backend-ecr-ssm`:
 
 - `ecr:GetAuthorizationToken` (needs `*`).
-- Push actions (`BatchCheckLayerAvailability`, `InitiateLayerUpload`,
-  `UploadLayerPart`, `CompleteLayerUpload`, `PutImage`) on the `bilance-api`
-  repository only.
+- Push actions (`BatchCheckLayerAvailability`, `GetDownloadUrlForLayer`,
+  `BatchGetImage`, `InitiateLayerUpload`, `UploadLayerPart`,
+  `CompleteLayerUpload`, `PutImage`) on the `bilance-api` repository only.
+  `docker push` checks whether the image manifest already exists before it
+  uploads it, which needs `BatchGetImage`; without it the push fails at the very
+  end with `403 Forbidden`.
 - `ssm:SendCommand` on this one instance and on the `AWS-RunShellScript`
   document.
 - `ssm:GetCommandInvocation` (needs `*`) to read the result.
