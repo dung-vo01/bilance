@@ -1,7 +1,7 @@
 # Infrastructure
 
-AWS pieces that sit next to the API (frontend hosting and the scheduled guest
-cleanup). They are currently created by hand in the
+AWS pieces that sit next to the API (frontend hosting, a practice copy of the
+API on EC2, and the scheduled guest cleanup). They are currently created by hand in the
 AWS console (region `eu-north-1`); the plan is to describe them as code
 (Terraform or CDK) later, and this file documents what exists until then.
 
@@ -137,6 +137,186 @@ Delete the CloudFront distribution (disable it first and wait), empty and
 delete the bucket, delete the IAM role and the GitHub identity provider, remove
 the CloudFront URL from `CORS_ORIGINS`, and delete the `deploy-frontend-aws`
 job and the four repository variables.
+
+## Backend on EC2 (practice, alongside Render)
+
+The API also runs on a single EC2 instance, next to the Render deployment that
+the live demo uses. It is an AWS practice setup with a deadline: the AWS free
+plan (about $200 in credits) ends on **2027-02-12**, so tear it down or start
+paying before then (see Teardown).
+
+**Status:** the instance, the Postgres container and the GitHub deploy pipeline
+exist. The instance has **no inbound rules yet**, so the API is not reachable
+from the internet. Still to do: HTTPS and public access through CloudFront, a
+nightly database backup to S3, and pointing a frontend at it.
+
+```
+push to main
+  |
+  +-- CI: backend-tests
+        |
+        +-- deploy-backend-aws
+              1. build the image, push to ECR (tags: commit SHA, latest)
+              2. SSM Run Command on the instance (no SSH) runs infra/ec2/deploy.sh
+                   pull image -> replace container -> wait for /api/config
+
+EC2 instance (Docker network "bilance")
+  +-- bilance-api  (port 80 on the host -> 5000 in the container)
+  +-- bilance-db   (postgres:16-alpine, not published; only reachable by bilance-api)
+        data: /data/postgres  = separate 8 GiB EBS volume
+```
+
+### Resources
+
+| Resource | Name / value | Notes |
+| --- | --- | --- |
+| EC2 instance | `bilance-api` | `t3.small` (2 vCPU, 2 GiB), Amazon Linux 2023 x86, `eu-north-1c`, no key pair (Session Manager only), credit specification **Standard** (no surprise burst charges), IMDSv2 only |
+| Root volume | 20 GiB gp3, encrypted | Deleted with the instance |
+| Data volume | `bilance-pgdata`, 8 GiB gp3, encrypted | xfs, mounted at `/data/postgres` through an `/etc/fstab` entry by UUID with `nofail`. Created separately so it survives replacing the instance |
+| Swap | 2 GiB `/swapfile` | Safety net for memory spikes (the instance has no other swap) |
+| Security group | `launch-wizard-2` | **No inbound rules.** CloudFront will be allowed in later |
+| Instance role | `bilance-api-instance-role` | `AmazonSSMManagedInstanceCore` (Session Manager, Run Command) and `AmazonEC2ContainerRegistryReadOnly` (pull images) |
+| ECR repository | `bilance-api` | Mutable tags, lifecycle rule keeps the newest 5 images |
+| Deploy role | `bilance-backend-deploy` | Assumed by GitHub Actions through OIDC, see below |
+
+Files on the instance (mode 600, owned by root, never committed):
+
+| File | Contents |
+| --- | --- |
+| `/etc/bilance/db.env` | `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB` (password generated on the server) |
+| `/etc/bilance/api.env` | The API settings: `ENVIRONMENT`, `SECRET_KEY`, `JWT_SECRET_KEY` (generated on the server), `DATABASE_URL` (host `bilance-db`), `CORS_ORIGINS`, `FRONTEND_URL`, `EMAIL_ENABLED=False`, `LOG_LEVEL` |
+
+### Deploy role (GitHub OIDC, no stored keys)
+
+Same pattern as the frontend role. The trust policy only accepts tokens for
+`repo:dung-vo01/bilance:ref:refs/heads/main` (audience `sts.amazonaws.com`), and
+the job must not use a GitHub `environment:`. Inline policy `deploy-backend-ecr-ssm`:
+
+- `ecr:GetAuthorizationToken` (needs `*`).
+- Push actions (`BatchCheckLayerAvailability`, `InitiateLayerUpload`,
+  `UploadLayerPart`, `CompleteLayerUpload`, `PutImage`) on the `bilance-api`
+  repository only.
+- `ssm:SendCommand` on this one instance and on the `AWS-RunShellScript`
+  document.
+- `ssm:GetCommandInvocation` (needs `*`) to read the result.
+
+GitHub repository **variables** (Settings -> Secrets and variables -> Actions ->
+Variables):
+
+| Variable | Value |
+| --- | --- |
+| `AWS_BACKEND_DEPLOY_ROLE_ARN` | ARN of `bilance-backend-deploy` |
+| `BACKEND_INSTANCE_ID` | the instance ID (`i-...`) |
+
+### What a deploy does
+
+[`ec2/deploy.sh`](ec2/deploy.sh) is sent to the instance by the workflow. It logs
+in to ECR with the instance role, pulls the image, removes the old container,
+starts the new one with `--env-file /etc/bilance/api.env`, and polls
+`http://localhost/api/config` for up to 60 seconds. If the API does not answer,
+it prints the container logs and fails, and so does the GitHub job. The API runs
+`alembic upgrade head` when it starts, so migrations apply on every deploy.
+Replacing the container means a few seconds of downtime per deploy.
+
+### Setting up the instance by hand (one time)
+
+Do these in order. Most are console steps; the rest run in a Session Manager
+shell (EC2 -> select the instance -> Connect -> **Session Manager**; do not use
+EC2 Instance Connect, it needs port 22).
+
+1. Create the instance role (EC2 trust, the two managed policies above), then
+   launch the instance with the settings in the table (**Standard** credit
+   specification, encrypted root volume, no key pair, a new security group with
+   **no** inbound rules, the instance profile attached).
+2. Create the 8 GiB encrypted gp3 volume in the **same availability zone** and
+   attach it as `/dev/sdf` (it appears as `/dev/nvme1n1`).
+3. Docker and swap:
+   ```bash
+   sudo dnf install -y docker
+   sudo systemctl enable --now docker
+   sudo usermod -aG docker ssm-user
+
+   sudo dd if=/dev/zero of=/swapfile bs=128M count=16 status=progress
+   sudo chmod 600 /swapfile && sudo mkswap /swapfile && sudo swapon /swapfile
+   echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab
+   ```
+4. Format and mount the data disk. Check `lsblk -f` first: only format a disk
+   that has no filesystem (`sudo file -s /dev/nvme1n1` prints `data`).
+   ```bash
+   sudo mkfs -t xfs /dev/nvme1n1
+   sudo mkdir -p /data/postgres
+   sudo mount /dev/nvme1n1 /data/postgres
+   UUID=$(sudo blkid -s UUID -o value /dev/nvme1n1)
+   echo "UUID=$UUID /data/postgres xfs defaults,nofail 0 2" | sudo tee -a /etc/fstab
+   sudo mount -a
+   ```
+5. Postgres (password generated on the server, never printed):
+   ```bash
+   sudo mkdir -p /etc/bilance
+   PW=$(openssl rand -hex 24)
+   printf "POSTGRES_USER=bilance\nPOSTGRES_PASSWORD=%s\nPOSTGRES_DB=bilance\n" "$PW" | sudo tee /etc/bilance/db.env > /dev/null
+   sudo chmod 600 /etc/bilance/db.env && unset PW
+
+   sudo docker network create bilance
+   sudo docker run -d --name bilance-db --restart unless-stopped \
+     --network bilance --env-file /etc/bilance/db.env \
+     -v /data/postgres:/var/lib/postgresql/data postgres:16-alpine
+   ```
+6. The API env file (secrets generated on the server; adjust `CORS_ORIGINS` and
+   `FRONTEND_URL` to the frontend that will use this API):
+   ```bash
+   sudo bash -c '
+   set -e
+   . /etc/bilance/db.env
+   cat > /etc/bilance/api.env <<EOF
+   ENVIRONMENT=production
+   SECRET_KEY=$(openssl rand -hex 32)
+   JWT_SECRET_KEY=$(openssl rand -hex 32)
+   DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@bilance-db:5432/${POSTGRES_DB}
+   CORS_ORIGINS=https://<frontend-origin>
+   FRONTEND_URL=https://<frontend-origin>
+   EMAIL_ENABLED=False
+   LOG_LEVEL=INFO
+   EOF
+   chmod 600 /etc/bilance/api.env
+   '
+   ```
+7. Create the ECR repository, the deploy role and the two GitHub variables, then
+   merge to `main`. The first deploy starts the API container.
+
+### Operating it
+
+- **Shell:** Session Manager, as above. Nothing listens on port 22.
+- **Logs:** `sudo docker logs --tail 100 bilance-api` (or `bilance-db`).
+- **Database shell:** `sudo docker exec -it bilance-db psql -U bilance bilance`.
+- **Health:** `curl -s localhost/api/config` on the instance;
+  `sudo docker ps` shows both containers; `free -m` and `df -h` for memory and disk.
+- **Change a setting:** edit `/etc/bilance/api.env`, then restart the container
+  with the same `docker run` as in `deploy.sh` (or just push a deploy).
+- **Rotate secrets:** changing `SECRET_KEY`/`JWT_SECRET_KEY` logs everyone out;
+  changing the database password means changing it in both files and in Postgres.
+- **Rebuilding the instance:** the setup above is manual, so a replacement means
+  repeating steps 3 to 6. The data volume can be re-attached and re-mounted
+  without formatting (skip `mkfs`).
+
+### Cost
+
+Roughly: `t3.small` about $16 a month, the two EBS volumes about $3, the public
+IPv4 address about $3.60, ECR a few cents. Around $23 a month, covered by the
+free-plan credits. A monthly AWS Budget alert is set as a safety net.
+
+### Teardown
+
+Before 2027-02-12 (or earlier to stop the spending):
+
+1. Take a final backup if the data matters (snapshot of `bilance-pgdata`, or
+   `pg_dump`).
+2. Terminate the instance, then delete the `bilance-pgdata` volume (it is not
+   removed automatically) and any snapshots.
+3. Delete the ECR repository, the `bilance-backend-deploy` and
+   `bilance-api-instance-role` roles, the security group, and the CloudFront
+   distribution (once added).
+4. Remove the `deploy-backend-aws` job and the two repository variables.
 
 ## Guest cleanup (Lambda + EventBridge Scheduler)
 
