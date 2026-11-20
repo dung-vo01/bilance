@@ -55,7 +55,9 @@ currently deployed to two places by the CI workflow
   CloudFront maps 403/404 responses to `/index.html`. Details in
   [`../infra/README.md`](../infra/README.md#frontend-hosting-s3--cloudfront).
 
-The API address is baked in at build time through `VITE_API_URL` (the host
+The two deployments use different APIs: the Vercel one calls the API on Render,
+the AWS one calls the API on EC2 (each with its own database). The API address
+is baked in at build time through `VITE_API_URL` (the host
 URL without `/api`). Every new frontend address must also be added to
 `CORS_ORIGINS` on the API (see the backend README).
 

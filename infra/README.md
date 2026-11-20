@@ -94,7 +94,7 @@ variables, not environment variables; none of them are secret):
 | `AWS_DEPLOY_ROLE_ARN` | ARN of `bilance-frontend-deploy` |
 | `S3_BUCKET` | `bilance-frontend-01` |
 | `CLOUDFRONT_DISTRIBUTION_ID` | the distribution ID (`E...`) |
-| `VITE_API_URL` | the API host URL, without `/api` |
+| `VITE_API_URL` | the API host URL, without `/api`. Currently the CloudFront URL of the API on EC2 (see "Backend on EC2"); it was the Render URL before. Only the AWS frontend job reads it, so Vercel is unaffected |
 
 ### What the deploy job does
 
@@ -145,12 +145,18 @@ the live demo uses. It is an AWS practice setup with a deadline: the AWS free
 plan (about $200 in credits) ends on **2027-02-12**, so tear it down or start
 paying before then (see Teardown).
 
-**Status:** the instance, the Postgres container and the GitHub deploy pipeline
-exist. The instance has **no inbound rules yet**, so the API is not reachable
-from the internet. Still to do: HTTPS and public access through CloudFront, a
-nightly database backup to S3, and pointing a frontend at it.
+**Status:** working. The API is reachable over HTTPS through a CloudFront
+distribution, and the **AWS-hosted frontend** (the S3 + CloudFront one) uses it,
+while the Vercel frontend keeps using the Render API. The two APIs have
+**separate databases**. Still to do: a nightly database backup to S3, and
+optionally a secret header that the API checks so only this distribution can use
+the origin.
 
 ```
+Browser (AWS frontend)
+  --HTTPS--> CloudFront "bilance-api" (no caching, all methods, forwards headers)
+  --HTTP, port 80--> EC2 instance (security group only admits CloudFront's servers)
+
 push to main
   |
   +-- CI: backend-tests
@@ -174,7 +180,9 @@ EC2 instance (Docker network "bilance")
 | Root volume | 20 GiB gp3, encrypted | Deleted with the instance |
 | Data volume | `bilance-pgdata`, 8 GiB gp3, encrypted | xfs, mounted at `/data/postgres` through an `/etc/fstab` entry by UUID with `nofail`. Created separately so it survives replacing the instance |
 | Swap | 2 GiB `/swapfile` | Safety net for memory spikes (the instance has no other swap) |
-| Security group | `launch-wizard-2` | **No inbound rules.** CloudFront will be allowed in later |
+| Elastic IP | `13.61.208.240`, associated with `bilance-api` | A stable address, so the CloudFront origin (the instance's public DNS name) does not change if the instance is stopped and started. Billed like any public IPv4 address, and an unattached Elastic IP still costs money |
+| Security group | `launch-wizard-2` | **One inbound rule:** HTTP, TCP 80, source the AWS-managed prefix list `com.amazonaws.global.cloudfront.origin-facing`, so only CloudFront's servers can connect. Port 22 is closed |
+| CloudFront distribution | `bilance-api` | Custom origin = the Elastic IP's public DNS name, **HTTP only on port 80**; viewers are redirected to HTTPS; all seven HTTP methods; cache policy **CachingDisabled**, origin request policy **AllViewer** (passes `Authorization`, cookies and query strings through); no WAF; no response-headers policy, because the API sends its own CORS headers |
 | Instance role | `bilance-api-instance-role` | `AmazonSSMManagedInstanceCore` (Session Manager, Run Command) and `AmazonEC2ContainerRegistryReadOnly` (pull images) |
 | ECR repository | `bilance-api` | Mutable tags, lifecycle rule keeps the newest 5 images |
 | Deploy role | `bilance-backend-deploy` | Assumed by GitHub Actions through OIDC, see below |
@@ -284,14 +292,37 @@ EC2 Instance Connect, it needs port 22).
    chmod 600 /etc/bilance/api.env
    '
    ```
-7. Create the ECR repository, the deploy role and the two GitHub variables, then
-   merge to `main`. The first deploy starts the API container.
+7. Create the ECR repository (mutable tags, keep the newest 5 images), the
+   deploy role and the two GitHub variables, then merge to `main`. The first
+   deploy starts the API container. (A deploy fails at the end with `403` if the
+   role lacks `ecr:BatchGetImage`, see the deploy role above.)
+8. Allocate an **Elastic IP** and associate it with the instance. Note the new
+   public DNS name (`ec2-<ip-with-dashes>.eu-north-1.compute.amazonaws.com`).
+9. Edit the security group: add one inbound rule, HTTP port 80, source the
+   prefix list `com.amazonaws.global.cloudfront.origin-facing`.
+10. Create the CloudFront distribution with the settings in the resource table
+    (origin type **Other**, protocol **HTTP only**, **Customize cache settings**:
+    redirect HTTP to HTTPS, all methods, CachingDisabled, AllViewer). Test with
+    `curl.exe -s https://<distribution>.cloudfront.net/api/config` (in
+    PowerShell, plain `curl` is an alias for `Invoke-WebRequest`).
+11. To use it from the AWS-hosted frontend, set the repository variable
+    `VITE_API_URL` to the distribution's URL (no trailing slash, no `/api`) and
+    re-run the `deploy-frontend-aws` job. Make sure that frontend's origin is in
+    `CORS_ORIGINS` in `/etc/bilance/api.env`.
 
 ### Operating it
 
 - **Shell:** Session Manager, as above. Nothing listens on port 22.
 - **Logs:** `sudo docker logs --tail 100 bilance-api` (or `bilance-db`).
 - **Database shell:** `sudo docker exec -it bilance-db psql -U bilance bilance`.
+- **Make a user an admin** (this database is separate from Render's, so accounts
+  must be created again here). Register through the app, then promote the
+  account. The role column is an enum with **uppercase** values:
+  ```bash
+  sudo docker exec bilance-db psql -U bilance -d bilance -c "SELECT id, username, role FROM users;"
+  sudo docker exec bilance-db psql -U bilance -d bilance -c "UPDATE users SET role = 'ADMIN' WHERE username = '<username>';"
+  ```
+  It should print `UPDATE 1`. Always keep the `WHERE`.
 - **Health:** `curl -s localhost/api/config` on the instance;
   `sudo docker ps` shows both containers; `free -m` and `df -h` for memory and disk.
 - **Change a setting:** edit `/etc/bilance/api.env`, then restart the container
@@ -305,8 +336,9 @@ EC2 Instance Connect, it needs port 22).
 ### Cost
 
 Roughly: `t3.small` about $16 a month, the two EBS volumes about $3, the public
-IPv4 address about $3.60, ECR a few cents. Around $23 a month, covered by the
-free-plan credits. A monthly AWS Budget alert is set as a safety net.
+IPv4 address (now the Elastic IP) about $3.60, ECR and CloudFront a few cents at
+this traffic. Around $23 a month, covered by the free-plan credits. A monthly
+AWS Budget alert is set as a safety net.
 
 ### Teardown
 
@@ -316,10 +348,13 @@ Before 2027-02-12 (or earlier to stop the spending):
    `pg_dump`).
 2. Terminate the instance, then delete the `bilance-pgdata` volume (it is not
    removed automatically) and any snapshots.
-3. Delete the ECR repository, the `bilance-backend-deploy` and
-   `bilance-api-instance-role` roles, the security group, and the CloudFront
-   distribution (once added).
-4. Remove the `deploy-backend-aws` job and the two repository variables.
+3. **Release the Elastic IP** (it is billed if it is left allocated and
+   unattached), then delete the `bilance-api` CloudFront distribution (disable
+   it first and wait), the ECR repository, the `bilance-backend-deploy` and
+   `bilance-api-instance-role` roles, and the security group.
+4. Remove the `deploy-backend-aws` job and its two repository variables, and set
+   `VITE_API_URL` back to the Render API URL, then re-run `deploy-frontend-aws`
+   so the AWS-hosted frontend does not point at a deleted API.
 
 ## Guest cleanup (Lambda + EventBridge Scheduler)
 
