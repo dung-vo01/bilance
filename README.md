@@ -78,7 +78,7 @@ because the project has no custom domain yet. See
 ```
 backend/    FastAPI app  - see backend/README.md
 frontend/   React app    - see frontend/README.md
-infra/      AWS pieces (frontend hosting, scheduled guest cleanup) - see infra/README.md
+infra/      AWS pieces (frontend hosting, API on EC2, guest cleanup) - see infra/README.md
 docs/       design notes (expense sharing & settlement rules)
 ```
 
