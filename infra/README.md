@@ -357,6 +357,54 @@ in the repo means downloading them to the instance again with the commands above
 Limit: the backups live in the same AWS account and region as the database, so
 they protect against disk or instance loss, not against losing the account.
 
+#### Restore test (done on 2026-11-23)
+
+A backup only counts once it has been restored. This restores the newest backup
+into a **scratch database**, compares it with the live one and deletes it, so it
+never touches real data. Run it in a Session Manager shell, for example after
+changing the backup script:
+
+```bash
+KEY=$(aws s3 ls s3://bilance-db-backups-01/daily/ | sort | tail -n 1 | awk '{print $4}')
+aws s3 cp "s3://bilance-db-backups-01/daily/$KEY" /var/tmp/restore-test.dump
+
+sudo docker exec bilance-db createdb -U bilance bilance_restore_test
+sudo docker cp /var/tmp/restore-test.dump bilance-db:/tmp/restore-test.dump
+sudo docker exec bilance-db pg_restore -U bilance -d bilance_restore_test --no-owner /tmp/restore-test.dump
+
+for DB in bilance bilance_restore_test; do
+  echo "== $DB"
+  sudo docker exec bilance-db psql -U bilance -d $DB -tA -c "SELECT 'users', count(*) FROM users UNION ALL SELECT 'tables', count(*) FROM information_schema.tables WHERE table_schema='public' UNION ALL SELECT 'migration', 0 FROM alembic_version;"
+done
+
+sudo docker exec bilance-db dropdb -U bilance bilance_restore_test
+sudo docker exec bilance-db rm -f /tmp/restore-test.dump
+rm -f /var/tmp/restore-test.dump
+```
+
+`pg_restore` should print nothing, and both databases should show the same user
+and table counts. The first run restored a backup with 1 user and 10 tables
+identically.
+
+#### Restoring for real
+
+Not rehearsed on the live database; it uses the same mechanism as the test. Stop
+the API first so nothing holds a connection, restore into a fresh database with
+the same name, then start the API again:
+
+```bash
+sudo docker stop bilance-api
+sudo docker exec bilance-db dropdb -U bilance bilance
+sudo docker exec bilance-db createdb -U bilance bilance
+sudo docker cp /var/tmp/restore.dump bilance-db:/tmp/restore.dump   # downloaded as in the test
+sudo docker exec bilance-db pg_restore -U bilance -d bilance --no-owner /tmp/restore.dump
+sudo docker start bilance-api
+```
+
+If the instance or its data volume is gone, first rebuild them (setup steps 1 to
+6, which creates an empty database), then restore as above before the first
+deploy.
+
 ### Operating it
 
 - **Shell:** Session Manager, as above. Nothing listens on port 22.
