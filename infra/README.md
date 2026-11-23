@@ -148,9 +148,9 @@ paying before then (see Teardown).
 **Status:** working. The API is reachable over HTTPS through a CloudFront
 distribution, and the **AWS-hosted frontend** (the S3 + CloudFront one) uses it,
 while the Vercel frontend keeps using the Render API. The two APIs have
-**separate databases**. Still to do: a nightly database backup to S3, and
-optionally a secret header that the API checks so only this distribution can use
-the origin.
+**separate databases**. The database is backed up nightly to S3 (see Backups).
+Still to do: optionally a secret header that the API checks so only this
+distribution can use the origin.
 
 ```
 Browser (AWS frontend)
@@ -310,6 +310,53 @@ EC2 Instance Connect, it needs port 22).
     re-run the `deploy-frontend-aws` job. Make sure that frontend's origin is in
     `CORS_ORIGINS` in `/etc/bilance/api.env`.
 
+### Backups (nightly pg_dump to S3)
+
+```
+systemd timer (02:30 UTC) -> bilance-backup.service -> /usr/local/bin/bilance-backup.sh
+  1. pg_dump (custom format) inside the bilance-db container, to /tmp in the container
+  2. check the file is not empty, then pg_restore --list it (proves it is readable)
+  3. docker cp the verified file to the instance, aws s3 cp it to the bucket
+  4. delete both temporary copies (also when something failed)
+```
+
+A failed step stops the script with a non-zero exit code, so a broken or empty
+dump is never uploaded as if it were a backup.
+
+| Resource | Name / value | Notes |
+| --- | --- | --- |
+| S3 bucket | `bilance-db-backups-01` (`eu-north-1`) | Private (block all public access), SSE-S3, objects under `daily/` |
+| Lifecycle rule | `bilance-db-expiration-rule` | Whole bucket: expire objects after **14 days**, delete incomplete multipart uploads after 1 day |
+| Role policy | `backup-bucket-access` on `bilance-api-instance-role` | `s3:ListBucket` on the bucket, `s3:PutObject` and `s3:GetObject` on its objects. **No delete permission**, so a compromised instance cannot wipe the backups; only the lifecycle rule deletes them |
+| Script | [`ec2/backup.sh`](ec2/backup.sh) | Installed as `/usr/local/bin/bilance-backup.sh`, runs as root and uses the instance role (no stored keys) |
+| Units | [`ec2/bilance-backup.service`](ec2/bilance-backup.service), [`ec2/bilance-backup.timer`](ec2/bilance-backup.timer) | In `/etc/systemd/system/`. The service is a one-shot job; the timer runs it daily and is `Persistent`, so a run missed while the instance was off happens at the next boot |
+
+Install on the instance (after the files are on `main`):
+
+```bash
+B=https://raw.githubusercontent.com/dung-vo01/bilance/main/infra/ec2
+sudo curl -fsSL $B/backup.sh -o /usr/local/bin/bilance-backup.sh
+sudo curl -fsSL $B/bilance-backup.service -o /etc/systemd/system/bilance-backup.service
+sudo curl -fsSL $B/bilance-backup.timer -o /etc/systemd/system/bilance-backup.timer
+sudo chmod 755 /usr/local/bin/bilance-backup.sh
+sudo systemctl daemon-reload
+sudo systemctl enable --now bilance-backup.timer
+```
+
+Run one by hand and check it:
+
+```bash
+sudo /usr/local/bin/bilance-backup.sh        # or: sudo systemctl start bilance-backup.service
+sudo journalctl -u bilance-backup.service -n 20 --no-pager
+systemctl list-timers bilance-backup.timer   # when it runs next
+aws s3 ls s3://bilance-db-backups-01/daily/
+```
+
+The files are not deployed by the CI pipeline: changing `backup.sh` or the units
+in the repo means downloading them to the instance again with the commands above.
+Limit: the backups live in the same AWS account and region as the database, so
+they protect against disk or instance loss, not against losing the account.
+
 ### Operating it
 
 - **Shell:** Session Manager, as above. Nothing listens on port 22.
@@ -330,8 +377,8 @@ EC2 Instance Connect, it needs port 22).
 - **Rotate secrets:** changing `SECRET_KEY`/`JWT_SECRET_KEY` logs everyone out;
   changing the database password means changing it in both files and in Postgres.
 - **Rebuilding the instance:** the setup above is manual, so a replacement means
-  repeating steps 3 to 6. The data volume can be re-attached and re-mounted
-  without formatting (skip `mkfs`).
+  repeating steps 3 to 6 and the backup install. The data volume can be
+  re-attached and re-mounted without formatting (skip `mkfs`).
 
 ### Cost
 
@@ -344,14 +391,16 @@ AWS Budget alert is set as a safety net.
 
 Before 2027-02-12 (or earlier to stop the spending):
 
-1. Take a final backup if the data matters (snapshot of `bilance-pgdata`, or
-   `pg_dump`).
+1. Take a final backup if the data matters (run `bilance-backup.sh`, then copy
+   the file out of the bucket, or snapshot `bilance-pgdata`).
 2. Terminate the instance, then delete the `bilance-pgdata` volume (it is not
    removed automatically) and any snapshots.
 3. **Release the Elastic IP** (it is billed if it is left allocated and
    unattached), then delete the `bilance-api` CloudFront distribution (disable
    it first and wait), the ECR repository, the `bilance-backend-deploy` and
    `bilance-api-instance-role` roles, and the security group.
+   Also empty and delete the `bilance-db-backups-01` bucket and remove the
+   `backup-bucket-access` policy (they go with the role).
 4. Remove the `deploy-backend-aws` job and its two repository variables, and set
    `VITE_API_URL` back to the Render API URL, then re-run `deploy-frontend-aws`
    so the AWS-hosted frontend does not point at a deleted API.

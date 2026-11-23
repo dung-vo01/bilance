@@ -1,0 +1,12 @@
+[Unit]
+Description=Nightly Bilance database backup
+
+[Timer]
+# 02:30 UTC every day. Persistent: if the instance was off at that time, run
+# the backup as soon as it boots.
+OnCalendar=*-*-* 02:30:00 UTC
+Persistent=true
+RandomizedDelaySec=300
+
+[Install]
+WantedBy=timers.target
